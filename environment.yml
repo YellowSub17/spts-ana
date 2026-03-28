@@ -1,0 +1,10 @@
+name: spts-ana
+channels:
+    - defaults
+    - conda-forge
+dependencies:
+    - python=3.13
+    - pip
+    - pip:
+      - -e .
+      - -e ./src/spts

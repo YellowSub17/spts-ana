@@ -1,0 +1,3 @@
+[submodule "src/spts"]
+	path = src/spts
+	url = https://github.com/YellowSub17/spts.git

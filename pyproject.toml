@@ -1,0 +1,26 @@
+[project]
+name = "spts-ana"
+version = "0.1.0"
+description = "Data analysis for SPTS"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy>=2.3.5",
+    "Cython>=3.2.2",
+    "h5py>=3.15.1",
+    "ipykernel>=6.31.0",
+    "scipy>=1.16.3",
+    "matplotlib>=3.10.7",
+    "pyqtgraph>=0.13.7",
+    "PyQt5>=5.15.11",
+    "olefile>=0.47",
+    "expiringdict",
+    # External Git Dependencies
+    "h5writer @ git+https://github.com/YellowSub17/h5writer.git",
+    "mulpro @ git+https://github.com/YellowSub17/mulpro.git",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
