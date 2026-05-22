@@ -1,10 +1,11 @@
 name: spts-ana
 channels:
-    - defaults
-    - conda-forge
+  - defaults
 dependencies:
-    - python=3.13
-    - pip
-    - pip:
-      - -e .
-      - -e ./src/spts
+  - python=3.13
+  - pip
+  - pytorch
+  - notebook
+  - ipywidgets
+  - scikit-learn
+prefix: /opt/miniconda3/envs/spts-ana

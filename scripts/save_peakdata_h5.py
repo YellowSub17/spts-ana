@@ -5,7 +5,7 @@ from config import generate_full_paths, ps_data_ranges
 import h5py
 
 
-file_path = '../data/thumbnails.h5'
+file_path = '../data/peak_data.h5'
 
 
 with h5py.File(file_path, "w") as f:
@@ -19,7 +19,7 @@ with h5py.File(file_path, "w") as f:
 
         grp = f.create_group(group)
         grp.create_dataset("thumbnails", data=thumbnails, compression="gzip", chunks=(1, 60, 60))
-        grp.create_dataset("flags", data=cbr1.filter[:] )
+        grp.create_dataset("filter_focused", data=cbr1.filter[:] )
         grp.create_dataset("xs", data=cbr1.peak_xs[:] )
         grp.create_dataset("ys", data=cbr1.peak_ys[:])
         grp.create_dataset("is", data=cbr1.peak_is[:])
@@ -32,33 +32,9 @@ with h5py.File(file_path, "w") as f:
         grp.create_dataset("area", data=cbr1.peak_area[:])
         grp.create_dataset("eccen", data=cbr1.peak_eccen[:])
 
-        
         # --- H5PY WRITE END ---
 
 print(f"All groups successfully written to {file_path}")
-
-
-
-# for group in ps_data_ranges.keys():
-    # print(group)
-
-    # cbr1 = comborun.ComboRun(generate_full_paths(ps_data_ranges[group],25))
-    # cbr2 = comborun.ComboRun(generate_full_paths(ps_data_ranges[group],7))
-    # cbr1.filter_focused(cbr2)
-
-    # thumbnails = cbr1.get_thumbnails()
-
-    # flags = cbr1.filter[:]
-
-
-    # output[group] = {
-            # 'thumbnails': thumbnails,
-            # 'flags': flags
-            # }
-
-
-
-
 
 
 

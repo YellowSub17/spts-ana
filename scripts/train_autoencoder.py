@@ -1,6 +1,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import h5py
 
 import config
 import comborun
@@ -11,7 +12,13 @@ from torch.utils.data import DataLoader, TensorDataset
 import torch
 import torch.nn as nn
 
-all_thbn = np.load(f'{config.DATA_DIR}/thumbnails.npy')
+
+
+
+
+
+all_thbn = autoencoder.concatenate_thumbnails(f'{config.DATA_DIR}/thumbnails.h5')
+
 train_data = autoencoder.process_thumbnails(all_thbn)
 
 
@@ -27,10 +34,14 @@ dataset = TensorDataset(data_tensor)
 loader = DataLoader(dataset, batch_size=32, shuffle=True)
 
 # Initialize
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+device = autoencoder.get_device()
+
 model = autoencoder.ParticleAE(latent_dim=32).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 criterion = nn.MSELoss()
+
+
 
 # Loop
 epochs = 50
@@ -38,18 +49,14 @@ for epoch in range(epochs):
     total_loss = 0
     for batch in loader:
         img = batch[0].to(device)
-        
         # Forward
         recon, _ = model(img)
         loss = criterion(recon, img)
-        
         # Backward
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        
         total_loss += loss.item()
-    
     if epoch % 10 == 0:
         print(f"Epoch {epoch}, Loss: {total_loss/len(loader):.6f}")
 

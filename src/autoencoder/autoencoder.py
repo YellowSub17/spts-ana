@@ -2,8 +2,10 @@ import torch
 import torch.nn as nn
 
 import numpy as np
+import h5py
 
 from torch.utils.data import DataLoader, TensorDataset
+import torch
 
 
 
@@ -36,7 +38,34 @@ class ParticleAE(nn.Module):
         reconstruction = self.decoder(latent)
         return reconstruction, latent
 
+def get_device():
+    if torch.cuda.is_available():
+        print('Found cuda')
+        device = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        print('Found mps')
+        device = torch.device("mps")
+    else:
+        print('Falling back to cpu')
+        device = torch.device("cpu")
 
+    return device
+
+
+
+
+
+def concatenate_data(h5fname, key='thumbnails'):
+    all_thbn = []
+    with h5py.File(h5fname) as f:
+        for grp in f.keys():
+            thmb = f[f'/{grp}/{key}'][:]
+            all_thbn.append(thmb)
+
+    all_thbn = np.concatenate(all_thbn, axis=0)
+    return all_thbn
+
+        
 def process_thumbnails(thumbnails, sigma=15):
     # 1. Create the Gaussian Mask (Same size as a single thumbnail)
     y, x = np.ogrid[-30:30, -30:30]
