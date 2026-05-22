@@ -15,22 +15,24 @@ with h5py.File(file_path, "w") as f:
         cbr2 = comborun.ComboRun(generate_full_paths(ps_data_ranges[group], 7))
         cbr1.filter_focused(cbr2)
         thumbnails = cbr1.get_thumbnails()
-        flags = cbr1.filter[:]
         # --- H5PY WRITE START ---
-        # 1. Create a group in the H5 file matching your experimental group name
+
         grp = f.create_group(group)
-        # 2. Save the 3D thumbnail array with gzip compression to save space
-        grp.create_dataset(
-            "thumbnails",
-            data=thumbnails,
-            compression="gzip",
-            chunks=(1, 60, 60)  # Optimizes reading single images later
-        )
-        # 3. Save the corresponding 1D boolean array
-        grp.create_dataset(
-            "flags",
-            data=flags
-        )
+        grp.create_dataset("thumbnails", data=thumbnails, compression="gzip", chunks=(1, 60, 60))
+        grp.create_dataset("flags", data=cbr1.filter[:] )
+        grp.create_dataset("xs", data=cbr1.peak_xs[:] )
+        grp.create_dataset("ys", data=cbr1.peak_ys[:])
+        grp.create_dataset("is", data=cbr1.peak_is[:])
+        grp.create_dataset("circum", data=cbr1.peak_circum[:])
+        grp.create_dataset("max", data=cbr1.peak_max[:])
+        grp.create_dataset("mean", data=cbr1.peak_mean[:])
+        grp.create_dataset("median", data=cbr1.peak_median[:])
+        grp.create_dataset("min", data=cbr1.peak_min[:])
+        grp.create_dataset("disloc", data=cbr1.peak_disloc[:])
+        grp.create_dataset("area", data=cbr1.peak_area[:])
+        grp.create_dataset("eccen", data=cbr1.peak_eccen[:])
+
+        
         # --- H5PY WRITE END ---
 
 print(f"All groups successfully written to {file_path}")
