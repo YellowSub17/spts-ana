@@ -1,6 +1,7 @@
 
 from .filtering import ComboRun_Filters
 from .plotting import ComboRun_Plots
+import config
 
 import copy
 import numpy as np

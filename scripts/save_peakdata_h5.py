@@ -3,9 +3,11 @@ import matplotlib.pyplot as plt
 import comborun
 from config import generate_full_paths, ps_data_ranges
 import h5py
+import hdf5plugin
 
 
-file_path = '../data/peak_data.h5'
+file_path = '/home/pat/spts-ana/data/peak_data.h5'
+
 
 
 with h5py.File(file_path, "w") as f:
