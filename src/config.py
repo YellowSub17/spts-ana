@@ -1,4 +1,5 @@
 from pathlib import Path
+import argparse
 
 # This locates the root relative to THIS config file
 PROJ_ROOT = Path(__file__).resolve().parent.parent
@@ -18,6 +19,16 @@ ps_data_ranges ={
     'groel':[f'data{x:05}.cxd' for x in range(1282, 1297)],
     'ferri':[f'data{x:05}.cxd' for x in range(1298, 1313)],
 }
+
+def get_parser():
+    parser = argparse.ArgumentParser(description="Shared Autoencoder Configurations")
+
+    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--latent-dim", type=int, default=32)
+    parser.add_argument("--PCA", type=int, default=2)
+    parser.add_argument("--groups", type=str, nargs='+', default=list(ps_data_ranges.keys()))
+
+    return parser
 
 
 

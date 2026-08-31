@@ -42,6 +42,7 @@ def get_device():
     if torch.cuda.is_available():
         print('Found cuda')
         device = torch.device("cuda")
+        
     elif torch.backends.mps.is_available():
         print('Found mps')
         device = torch.device("mps")
@@ -90,3 +91,8 @@ def process_thumbnails(thumbnails, sigma=15):
     processed *= mask
     processed = processed[:, np.newaxis, :, :]
     return processed.astype(np.float32)
+
+
+
+
+
