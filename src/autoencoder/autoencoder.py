@@ -56,10 +56,12 @@ def get_device():
 
 
 
-def concatenate_data(h5fname, key='thumbnails'):
+def concatenate_data(h5fname, key='thumbnails', groups='*'):
     all_thbn = []
     with h5py.File(h5fname) as f:
-        for grp in f.keys():
+        if groups=='*':
+            groups = f.keys()
+        for grp in groups:
             thmb = f[f'/{grp}/{key}'][:]
             all_thbn.append(thmb)
 
@@ -67,7 +69,7 @@ def concatenate_data(h5fname, key='thumbnails'):
     return all_thbn
 
         
-def process_thumbnails(thumbnails, sigma=15):
+def process_thumbnails(thumbnails, sigma=15, thresh=0.2):
     # 1. Create the Gaussian Mask (Same size as a single thumbnail)
     y, x = np.ogrid[-30:30, -30:30]
     mask = np.exp(-(x**2 + y**2) / (2 * sigma**2))
@@ -89,6 +91,10 @@ def process_thumbnails(thumbnails, sigma=15):
     # 4. Apply Gaussian Mask to the whole stack
     # NumPy will automatically broadcast the (60, 60) mask across the (2000, 60, 60) array
     processed *= mask
+
+    processed[processed>thresh] = 1
+    processed[processed<=thresh] = 0
+    
     processed = processed[:, np.newaxis, :, :]
     return processed.astype(np.float32)
 

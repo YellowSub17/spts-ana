@@ -25,9 +25,6 @@ train_data = autoencoder.process_thumbnails(all_thbn)
 
 
 
-
-
-
 # Convert to PyTorch Tensors
 # Filter out the empty (zero) thumbnails first!
 valid_mask = train_data.sum(axis=(1, 2, 3)) > 0
@@ -65,13 +62,14 @@ for epoch in range(args.epochs):
         print(f"Epoch {epoch}, Loss: {total_loss/len(loader):.6f}")
 
 
-model_path = f"{config.DATA_DIR}/model_ld{args.latent_dim}.pth"
+
+if args.tag =='':
+    model_path = f"{config.DATA_DIR}/model.pth"
+else:
+    model_path = f"{config.DATA_DIR}/model_{args.tag}.pth"
 
 # Save the weights
 torch.save(model.state_dict(), model_path)
 print(f"Model saved to {model_path}")
 
 
-# plt.figure()
-# plt.plot(losses)
-# plt.show()
