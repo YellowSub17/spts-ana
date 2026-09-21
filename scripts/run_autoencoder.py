@@ -19,7 +19,6 @@ parser = config.get_parser()
 args = parser.parse_args()
 
 
-
 all_thbn = autoencoder.concatenate_data(f'{config.DATA_DIR}/thumbnails.h5', key='thumbnails', groups=args.groups)
 
 
@@ -32,7 +31,7 @@ device = autoencoder.get_device()
 
 model = autoencoder.ParticleAE(latent_dim=args.latent_dim).to(device)
 
-if args.tag =='':
+if args.tag =="":
     model_path = f"{config.DATA_DIR}/model.pth"
 else:
     model_path = f"{config.DATA_DIR}/model_{args.tag}.pth"
