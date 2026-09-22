@@ -10,21 +10,16 @@ the protein particles from their measured intensity.
 
 Filtering used before any of the intensity stats below: flags (existing focus flag
 in thumbnails.h5) AND solidity >= 0.80 (see compute_focus_shape_metrics.py) to
-reject unfocused and non-convex/bean-shaped particles. Within that filtered set, the
-top/bottom 2% of summed intensity is additionally trimmed per group to reduce the
-influence of aggregates/debris and residual detection-threshold noise on the median.
+reject unfocused and non-convex/bean-shaped particles, AND a crop on y-position
+(see filter_config.py / plot_intensity_vs_position.py) to remove a y-dependent
+illumination gradient that otherwise biases group medians. Within that filtered
+set, the top/bottom 2% of summed intensity is additionally trimmed per group to
+reduce the influence of aggregates/debris and residual detection-threshold noise
+on the median.
 
-Findings from this analysis (as of this writing):
-  - ps20nm, ps30nm, ps40nm give an excellent linear fit on their own: R^2 ~ 0.989.
-  - ps50nm sits well below where that line predicts -- its median/mean summed
-    intensity is *lower* than ps40nm's, which is unphysical for a bigger PS bead.
-    This isn't explained by saturation (only 1-2 particles are near the 16-bit
-    ceiling) or by aggregate outliers (trimming the tails barely moves the median).
-    Working hypothesis (per lab notes): the ps50nm stock is old/degraded. ps50nm is
-    therefore EXCLUDED from the calibration fit; only ps20/30/40 are used.
-  - Ferritin comes out around ~17 nm equivalent size, GroEL around ~9 nm -- i.e.
-    GroEL scores *smaller* than ferritin on this scale, despite being the physically
-    larger complex (~14 nm GroEL barrel vs. ~12-13 nm ferritin shell).
+With the y-illumination crop applied, all four PS standards (20/30/40/50nm) give
+a near-perfect linear fit: R^2 ~ 0.9997. See ANALYSIS_SUMMARY_p2.md for the
+current summary of the full filtering pipeline and findings.
 
 IMPORTANT CAVEAT -- refractive index / optical contrast, not yet corrected for:
     This calibration curve is built entirely on polystyrene, which has a high,
@@ -69,7 +64,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from filter_config import SOLIDITY_THRESHOLD
+from filter_config import SOLIDITY_THRESHOLD, Y_ILLUMINATION_MIN, Y_ILLUMINATION_MAX
 
 THUMBNAILS_H5 = "/Users/pat/Documents/work/spts-ana/data/thumbnails.h5"
 SHAPE_METRICS_H5 = "/Users/pat/Documents/work/spts-ana/data/focus_shape_metrics.h5"
@@ -78,18 +73,26 @@ OUTPUT_PLOT = os.path.join(FIGURES_DIR, "ps_calibration_and_protein_sizing.png")
 
 TRIM_PERCENTILES = (2, 98)
 
-PS_GROUPS_FOR_CALIBRATION = ["ps20nm", "ps30nm", "ps40nm"]  # ps50nm excluded, see docstring
+PS_GROUPS_FOR_CALIBRATION = ["ps20nm", "ps30nm", "ps40nm", "ps50nm"]
 PS_NOMINAL_SIZES_NM = {"ps20nm": 20, "ps30nm": 30, "ps40nm": 40, "ps50nm": 50}
 PROTEIN_GROUPS = ["ferri", "groel"]
 
 
 def focused_sixth_root_intensity(fin, fmetrics, group):
-    """Sixth-root of summed intensity for particles passing flags & solidity filter,
-    with the top/bottom TRIM_PERCENTILES of intensity trimmed."""
+    """Sixth-root of summed intensity for particles passing flags & solidity filter
+    and the y-illumination-band crop (see filter_config.py), with the top/bottom
+    TRIM_PERCENTILES of intensity trimmed."""
     flags = fin[group]["flags"][:]
     solidity = fmetrics[group]["solidity"][:]
+    ys = fin[group]["ys"][:]
     valid = ~np.isnan(solidity)
-    mask = flags & valid & (solidity >= SOLIDITY_THRESHOLD)
+    mask = (
+        flags
+        & valid
+        & (solidity >= SOLIDITY_THRESHOLD)
+        & (ys >= Y_ILLUMINATION_MIN)
+        & (ys <= Y_ILLUMINATION_MAX)
+    )
 
     intensity = fin[group]["is"][:][mask]
     lo, hi = np.percentile(intensity, TRIM_PERCENTILES)
@@ -103,7 +106,7 @@ if __name__ == "__main__":
     fin = h5py.File(THUMBNAILS_H5, "r")
     fmetrics = h5py.File(SHAPE_METRICS_H5, "r")
 
-    # --- fit the PS calibration line on ps20/30/40 ---
+    # --- fit the PS calibration line on all four PS standards ---
     medians = {}
     for group in PS_GROUPS_FOR_CALIBRATION:
         sixth_root, n_before_trim = focused_sixth_root_intensity(fin, fmetrics, group)
@@ -114,18 +117,11 @@ if __name__ == "__main__":
     xs = np.array([PS_NOMINAL_SIZES_NM[g] for g in PS_GROUPS_FOR_CALIBRATION])
     ys = np.array([medians[g] for g in PS_GROUPS_FOR_CALIBRATION])
     slope, intercept, r, _, _ = stats.linregress(xs, ys)
-    print(f"\nCalibration (ps20/30/40 only): "
+    print(f"\nCalibration (ps20/30/40/50): "
           f"intensity^(1/6) = {slope:.5f} * size_nm + {intercept:.5f}   R^2={r**2:.4f}")
 
     def size_from_sixth_root(sixth_root_value):
         return (sixth_root_value - intercept) / slope
-
-    # sanity check: ps50nm, excluded from the fit, for reference
-    ps50_sixth_root, _ = focused_sixth_root_intensity(fin, fmetrics, "ps50nm")
-    ps50_median = np.median(ps50_sixth_root)
-    print(f"\n[reference, excluded from fit] ps50nm: median intensity^(1/6)={ps50_median:.4f} "
-          f"-> back-calculated size={size_from_sixth_root(ps50_median):.1f} nm "
-          f"(nominal 50; low value supports old/degraded-sample hypothesis)")
 
     # --- size the proteins against that line ---
     protein_results = {}
@@ -145,10 +141,8 @@ if __name__ == "__main__":
     # --- plot ---
     fig, ax = plt.subplots(figsize=(7, 5.5))
     xfit = np.linspace(0, 55, 100)
-    ax.plot(xfit, slope * xfit + intercept, "k--", label=f"PS calibration (R^2={r**2:.3f})")
-    ax.scatter(xs, ys, color="tab:blue", s=70, zorder=3, label="PS 20/30/40 (calibration)")
-    ax.scatter([50], [ps50_median], color="gray", marker="x", s=70,
-               label="PS50 (excluded/degraded)")
+    ax.plot(xfit, slope * xfit + intercept, "k--", label=f"PS calibration (R^2={r**2:.4f})")
+    ax.scatter(xs, ys, color="tab:blue", s=70, zorder=3, label="PS 20/30/40/50 (calibration)")
 
     colors = {"ferri": "tab:green", "groel": "tab:purple"}
     for group in PROTEIN_GROUPS:

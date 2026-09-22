@@ -17,18 +17,19 @@ them apart:
       than just the population median) and looking at the spread of inferred
       sizes.
 
-Finding (see chat / run this script): (a) is not the bottleneck -- even the
-dimmest standard (ps20nm) sits at roughly 15x the estimated noise floor. But (b)
-is: the per-particle inferred-size standard deviation (~15-19 nm) is as large as,
-or larger than, the 10nm spacing between the PS standards. So a size read off a
-SINGLE particle's intensity is not meaningful on its own -- the population median
-is still well-determined (SEM ~0.5-1nm, thanks to large N), but only for a large,
-clean, single-species population. This bounds "minimum measurable size" as a
-statement about populations, not individual particles: you can characterize the
-median size of a big, clean population of small particles, but you cannot reliably
-size any one of them individually, and you cannot rescue a systematically-biased
-or mixed population (e.g. the degraded ps50nm sample, or ferritin/GroEL's
-refractive-index mismatch -- see ps_calibration_sizing.py) by adding more particles.
+Finding (see ANALYSIS_SUMMARY_p2.md / run this script): (a) is not the
+bottleneck -- even the dimmest standard (ps20nm) sits well above the estimated
+noise floor. But (b) is: the per-particle inferred-size standard deviation
+(~11-14 nm) is comparable to the 10nm spacing between the PS standards. So a
+size read off a SINGLE particle's intensity is not meaningful on its own -- the
+population median is still well-determined (SEM well under 1nm, thanks to large
+N), but only for a large, clean, single-species population. This bounds "minimum
+measurable size" as a statement about populations, not individual particles: you
+can characterize the median size of a big, clean population of small particles,
+but you cannot reliably size any one of them individually, and you cannot rescue
+a systematically-biased or mixed population (e.g. ferritin/GroEL's
+refractive-index mismatch -- see ps_calibration_sizing.py) by adding more
+particles.
 
 Run compute_focus_shape_metrics.py first to generate data/focus_shape_metrics.h5.
 """
@@ -44,14 +45,15 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 import plot_focus_shape_metrics as pfsm
+from filter_config import Y_ILLUMINATION_MIN, Y_ILLUMINATION_MAX
 
 THUMBNAILS_H5 = "/Users/pat/Documents/work/spts-ana/data/thumbnails.h5"
 SHAPE_METRICS_H5 = "/Users/pat/Documents/work/spts-ana/data/focus_shape_metrics.h5"
 FIGURES_DIR = "/Users/pat/Documents/work/spts-ana/figures"
 
 TRIM_PERCENTILES = (2, 98)
-PS_GROUPS_FOR_CALIBRATION = ["ps20nm", "ps30nm", "ps40nm"]
-PS_NOMINAL_SIZES_NM = {"ps20nm": 20, "ps30nm": 30, "ps40nm": 40}
+PS_GROUPS_FOR_CALIBRATION = ["ps20nm", "ps30nm", "ps40nm", "ps50nm"]
+PS_NOMINAL_SIZES_NM = {"ps20nm": 20, "ps30nm": 30, "ps40nm": 40, "ps50nm": 50}
 
 # detection/summation window radius (px) used upstream for the 'is' intensity field
 # (see src/comborun/comborun.py: ComboRun(..., 25) -> the r1 / large window)
@@ -59,13 +61,17 @@ SUMMATION_RADIUS_PX = 25
 N_BACKGROUND_SAMPLES_PER_GROUP = 500
 RANDOM_SEED = 1
 
-GROUP_COLOR = {"ps20nm": "tab:blue", "ps30nm": "tab:orange", "ps40nm": "tab:green"}
+GROUP_COLOR = {"ps20nm": "tab:blue", "ps30nm": "tab:orange", "ps40nm": "tab:green",
+               "ps50nm": "tab:red"}
 
 
 def green_intensity(fin, fmetrics, group):
-    """Summed intensity ('is') for GREEN particles (passes both filters), trimmed."""
+    """Summed intensity ('is') for GREEN particles (passes both filters) within the
+    y-illumination band (see filter_config.py), trimmed."""
     cat, _ = pfsm.classify_particles(fin, fmetrics, group)
-    intensity = fin[group]["is"][:][cat == pfsm.PASSES_BOTH]
+    ys = fin[group]["ys"][:]
+    mask = (cat == pfsm.PASSES_BOTH) & (ys >= Y_ILLUMINATION_MIN) & (ys <= Y_ILLUMINATION_MAX)
+    intensity = fin[group]["is"][:][mask]
     lo, hi = np.percentile(intensity, TRIM_PERCENTILES)
     return intensity[(intensity >= lo) & (intensity <= hi)]
 
@@ -173,7 +179,7 @@ if __name__ == "__main__":
     fmetrics = h5py.File(SHAPE_METRICS_H5, "r")
 
     slope, intercept, r2 = fit_ps_calibration(fin, fmetrics)
-    print(f"Calibration (ps20/30/40): intensity^(1/6) = {slope:.5f}*size_nm + {intercept:.5f}  "
+    print(f"Calibration (ps20/30/40/50): intensity^(1/6) = {slope:.5f}*size_nm + {intercept:.5f}  "
           f"R^2={r2:.4f}\n")
 
     per_particle_sizes = per_particle_sizing_precision(fin, fmetrics, slope, intercept)

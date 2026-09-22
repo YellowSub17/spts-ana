@@ -14,10 +14,9 @@ Produces two figures in figures/:
      per group (ps20/30/40/50nm, ferri, groel).
   2. ps_calibration_size_vs_sixthroot.png
      Median intensity^(1/6) vs. nominal size for the polystyrene spheres, with a
-     linear fit through ps20/30/40nm (ps50nm excluded -- see ps_calibration_sizing.py
-     docstring: likely an old/degraded sample). Ferritin and GroEL are also plotted,
-     at their PS-equivalent size read off that fit -- NOT a true physical size,
-     see the refractive-index caveat in ps_calibration_sizing.py.
+     linear fit through all four PS standards (20/30/40/50nm). Ferritin and GroEL
+     are also plotted, at their PS-equivalent size read off that fit -- NOT a true
+     physical size, see the refractive-index caveat in ps_calibration_sizing.py.
 
 Run compute_focus_shape_metrics.py first to generate data/focus_shape_metrics.h5.
 """
@@ -33,22 +32,26 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 import plot_focus_shape_metrics as pfsm
+from filter_config import Y_ILLUMINATION_MIN, Y_ILLUMINATION_MAX
 
 THUMBNAILS_H5 = "/Users/pat/Documents/work/spts-ana/data/thumbnails.h5"
 SHAPE_METRICS_H5 = "/Users/pat/Documents/work/spts-ana/data/focus_shape_metrics.h5"
 FIGURES_DIR = "/Users/pat/Documents/work/spts-ana/figures"
 
 TRIM_PERCENTILES = (2, 98)
-PS_GROUPS_FOR_CALIBRATION = ["ps20nm", "ps30nm", "ps40nm"]  # ps50nm excluded, see docstring
+PS_GROUPS_FOR_CALIBRATION = ["ps20nm", "ps30nm", "ps40nm", "ps50nm"]
 PS_NOMINAL_SIZES_NM = {"ps20nm": 20, "ps30nm": 30, "ps40nm": 40, "ps50nm": 50}
 PROTEIN_GROUPS = ["ferri", "groel"]
 PROTEIN_COLOR = {"ferri": "tab:green", "groel": "tab:purple"}
 
 
 def green_intensity(fin, fmetrics, group):
-    """Summed intensity ('is') for GREEN particles (passes both filters), trimmed."""
+    """Summed intensity ('is') for GREEN particles (passes both filters) within the
+    y-illumination band (see filter_config.py), trimmed."""
     cat, _ = pfsm.classify_particles(fin, fmetrics, group)
-    intensity = fin[group]["is"][:][cat == pfsm.PASSES_BOTH]
+    ys = fin[group]["ys"][:]
+    mask = (cat == pfsm.PASSES_BOTH) & (ys >= Y_ILLUMINATION_MIN) & (ys <= Y_ILLUMINATION_MAX)
+    intensity = fin[group]["is"][:][mask]
     lo, hi = np.percentile(intensity, TRIM_PERCENTILES)
     return intensity[(intensity >= lo) & (intensity <= hi)]
 
@@ -69,10 +72,10 @@ def plot_intensity_distributions(fin, fmetrics, groups):
 
 
 def plot_size_vs_sixthroot(fin, fmetrics):
-    # calibration fit on ps20/30/40
+    # calibration fit on all four PS standards
     medians = {}
     spreads = {}
-    for group in PS_GROUPS_FOR_CALIBRATION + ["ps50nm"]:
+    for group in PS_GROUPS_FOR_CALIBRATION:
         sixth_root = green_intensity(fin, fmetrics, group) ** (1 / 6)
         medians[group] = np.median(sixth_root)
         spreads[group] = np.percentile(sixth_root, [16, 84])
@@ -86,7 +89,7 @@ def plot_size_vs_sixthroot(fin, fmetrics):
 
     fig, ax = plt.subplots(figsize=(7, 5.5))
     xfit = np.linspace(0, 55, 100)
-    ax.plot(xfit, slope * xfit + intercept, "k--", label=f"PS calibration fit (R^2={r**2:.3f})")
+    ax.plot(xfit, slope * xfit + intercept, "k--", label=f"PS calibration fit (R^2={r**2:.4f})")
 
     # PS points used in the fit, with 16-84th percentile error bars
     for group in PS_GROUPS_FOR_CALIBRATION:
@@ -94,14 +97,7 @@ def plot_size_vs_sixthroot(fin, fmetrics):
         ax.errorbar([PS_NOMINAL_SIZES_NM[group]], [medians[group]],
                     yerr=[[medians[group] - lo], [hi - medians[group]]],
                     fmt="o", color="tab:blue", capsize=4, zorder=3)
-    ax.scatter([], [], color="tab:blue", label="PS 20/30/40nm (calibration)")
-
-    # ps50nm shown but excluded from the fit
-    lo, hi = spreads["ps50nm"]
-    ax.errorbar([50], [medians["ps50nm"]],
-                yerr=[[medians["ps50nm"] - lo], [hi - medians["ps50nm"]]],
-                fmt="x", color="gray", capsize=4, zorder=3,
-                label="PS50nm (excluded, likely degraded)")
+    ax.scatter([], [], color="tab:blue", label="PS 20/30/40/50nm (calibration)")
 
     # proteins, sized against the fit (PS-equivalent size -- see refractive-index caveat)
     for group in PROTEIN_GROUPS:
