@@ -8,15 +8,18 @@ the particles that pass both filtering stages (see plot_focus_shape_metrics.py f
 the RED/YELLOW/GREEN classification) -- with the top/bottom 2% of intensity
 additionally trimmed to reduce the influence of aggregates/debris on the median.
 
-Produces two figures in figures/:
-  1. distribution_intensity_green.png
+Produces two figures:
+  1. figures/dist/distribution_intensity_green.png
      Histograms of summed intensity (log-scale) for the GREEN particles, one panel
      per group (ps20/30/40/50nm, ferri, groel).
-  2. ps_calibration_size_vs_sixthroot.png
+  2. figures/ps_calibration_size_vs_sixthroot.png
      Median intensity^(1/6) vs. nominal size for the polystyrene spheres, with a
      linear fit through all four PS standards (20/30/40/50nm). Ferritin and GroEL
      are also plotted, at their PS-equivalent size read off that fit -- NOT a true
      physical size, see the refractive-index caveat in ps_calibration_sizing.py.
+     Also overlays the DMA-fitted Gaussian sigma (see fit_dma_gaussian_peaks.py) as
+     a horizontal error bar at each sample with clean DMA data, alongside the
+     optical spread -- a direct visual comparison of the two measurements.
 
 Run compute_focus_shape_metrics.py first to generate data/focus_shape_metrics.h5.
 """
@@ -33,10 +36,13 @@ import matplotlib.pyplot as plt
 
 import plot_focus_shape_metrics as pfsm
 from filter_config import Y_ILLUMINATION_MIN, Y_ILLUMINATION_MAX
+from plot_dma_data import parse_dma_file, DMA_FILE
+from fit_dma_gaussian_peaks import DMA_SAMPLES_TO_FIT, compute_all_fits
 
 THUMBNAILS_H5 = "/Users/pat/Documents/work/spts-ana/data/thumbnails.h5"
 SHAPE_METRICS_H5 = "/Users/pat/Documents/work/spts-ana/data/focus_shape_metrics.h5"
 FIGURES_DIR = "/Users/pat/Documents/work/spts-ana/figures"
+DIST_DIR = os.path.join(FIGURES_DIR, "dist")
 
 TRIM_PERCENTILES = (2, 98)
 PS_GROUPS_FOR_CALIBRATION = ["ps20nm", "ps30nm", "ps40nm", "ps50nm"]
@@ -65,13 +71,13 @@ def plot_intensity_distributions(fin, fmetrics, groups):
         ax.set_xlabel("log10(summed intensity)")
     plt.suptitle("Summed intensity distributions -- GREEN particles only (passes both filters)")
     plt.tight_layout()
-    out_path = os.path.join(FIGURES_DIR, "distribution_intensity_green.png")
+    out_path = os.path.join(DIST_DIR, "distribution_intensity_green.png")
     plt.savefig(out_path, dpi=120)
     plt.close(fig)
     print(f"Saved {out_path}")
 
 
-def plot_size_vs_sixthroot(fin, fmetrics):
+def plot_size_vs_sixthroot(fin, fmetrics, diameters, distributions):
     # calibration fit on all four PS standards
     medians = {}
     spreads = {}
@@ -92,8 +98,11 @@ def plot_size_vs_sixthroot(fin, fmetrics):
     ax.plot(xfit, slope * xfit + intercept, "k--", label=f"PS calibration fit (R^2={r**2:.4f})")
 
     # PS points used in the fit, with 16-84th percentile error bars
+    # (plot_position tracks each group's (x, y) on this plot, for the DMA overlay below)
+    plot_position = {}
     for group in PS_GROUPS_FOR_CALIBRATION:
         lo, hi = spreads[group]
+        plot_position[group] = (PS_NOMINAL_SIZES_NM[group], medians[group])
         ax.errorbar([PS_NOMINAL_SIZES_NM[group]], [medians[group]],
                     yerr=[[medians[group] - lo], [hi - medians[group]]],
                     fmt="o", color="tab:blue", capsize=4, zorder=3)
@@ -106,16 +115,29 @@ def plot_size_vs_sixthroot(fin, fmetrics):
         p16, p84 = np.percentile(sixth_root, [16, 84])
         size_est = size_from_sixth_root(median_sixth_root)
         size_lo, size_hi = size_from_sixth_root(p16), size_from_sixth_root(p84)
+        plot_position[group] = (size_est, median_sixth_root)
         color = PROTEIN_COLOR[group]
         ax.errorbar([size_est], [median_sixth_root],
                     xerr=[[size_est - size_lo], [size_hi - size_est]],
                     fmt="D", color=color, capsize=4, zorder=4,
                     label=f"{group}: ~{size_est:.1f} nm (PS-equivalent)")
 
+    # DMA-fitted Gaussian sigma, drawn as a horizontal error bar at each fitted
+    # sample's plot position (see fit_dma_gaussian_peaks.py)
+    dma_fits = compute_all_fits(diameters, distributions)
+    first = True
+    for sample, fit in dma_fits.items():
+        group = DMA_SAMPLES_TO_FIT[sample]["optical_group"]
+        x_center, y_center = plot_position[group]
+        ax.errorbar([x_center], [y_center], xerr=[[fit["sigma"]], [fit["sigma"]]],
+                    fmt="none", color="tab:red", capsize=5, lw=2, zorder=5,
+                    label="DMA Gaussian sigma" if first else None)
+        first = False
+
     ax.set_xlabel("Size (nm) -- PS-equivalent for ferritin/GroEL, see docstring caveat")
     ax.set_ylabel("Median intensity^(1/6)")
     ax.legend(fontsize=8)
-    ax.set_title("Size vs. median intensity^(1/6): PS calibration and protein sizing")
+    ax.set_title("Size vs. median intensity^(1/6): PS calibration & DMA cross-check", fontsize=11)
     plt.tight_layout()
     out_path = os.path.join(FIGURES_DIR, "ps_calibration_size_vs_sixthroot.png")
     plt.savefig(out_path, dpi=120)
@@ -126,12 +148,14 @@ def plot_size_vs_sixthroot(fin, fmetrics):
 
 if __name__ == "__main__":
     os.makedirs(FIGURES_DIR, exist_ok=True)
+    os.makedirs(DIST_DIR, exist_ok=True)
 
     fin = h5py.File(THUMBNAILS_H5, "r")
     fmetrics = h5py.File(SHAPE_METRICS_H5, "r")
     groups = list(fin.keys())
+    header, diameters, distributions, footer = parse_dma_file(DMA_FILE)
 
     plot_intensity_distributions(fin, fmetrics, groups)
-    plot_size_vs_sixthroot(fin, fmetrics)
+    plot_size_vs_sixthroot(fin, fmetrics, diameters, distributions)
 
     print("\nAll figures written to", FIGURES_DIR)

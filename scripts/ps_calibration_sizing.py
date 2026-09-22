@@ -47,29 +47,21 @@ IMPORTANT CAVEAT -- refractive index / optical contrast, not yet corrected for:
 Output
 ------
 Prints the calibration fit, per-group median sixth-root intensity, and the
-PS-equivalent size estimate (with 16-84th percentile spread) for ferritin and GroEL.
-Saves a comparison plot to ps_calibration_and_protein_sizing.png in the working
-directory.
+PS-equivalent size estimate (with 16-84th percentile spread) for ferritin and
+GroEL. For the plotted version of this calibration (with DMA error bars), see
+plot_ps_calibration_sizing.py -> figures/ps_calibration_size_vs_sixthroot.png.
 
 Run compute_focus_shape_metrics.py first to generate data/focus_shape_metrics.h5.
 """
 
-import os
-
 import h5py
 import numpy as np
 from scipy import stats
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 from filter_config import SOLIDITY_THRESHOLD, Y_ILLUMINATION_MIN, Y_ILLUMINATION_MAX
 
 THUMBNAILS_H5 = "/Users/pat/Documents/work/spts-ana/data/thumbnails.h5"
 SHAPE_METRICS_H5 = "/Users/pat/Documents/work/spts-ana/data/focus_shape_metrics.h5"
-FIGURES_DIR = "/Users/pat/Documents/work/spts-ana/figures"
-OUTPUT_PLOT = os.path.join(FIGURES_DIR, "ps_calibration_and_protein_sizing.png")
 
 TRIM_PERCENTILES = (2, 98)
 
@@ -101,8 +93,6 @@ def focused_sixth_root_intensity(fin, fmetrics, group):
 
 
 if __name__ == "__main__":
-    os.makedirs(FIGURES_DIR, exist_ok=True)
-
     fin = h5py.File(THUMBNAILS_H5, "r")
     fmetrics = h5py.File(SHAPE_METRICS_H5, "r")
 
@@ -137,30 +127,3 @@ if __name__ == "__main__":
               f"median intensity^(1/6)={median_sixth_root:.3f}  "
               f"-> PS-equivalent size ~ {size_est:.1f} nm "
               f"(16-84th percentile: {size_lo:.1f}-{size_hi:.1f} nm)")
-
-    # --- plot ---
-    fig, ax = plt.subplots(figsize=(7, 5.5))
-    xfit = np.linspace(0, 55, 100)
-    ax.plot(xfit, slope * xfit + intercept, "k--", label=f"PS calibration (R^2={r**2:.4f})")
-    ax.scatter(xs, ys, color="tab:blue", s=70, zorder=3, label="PS 20/30/40/50 (calibration)")
-
-    colors = {"ferri": "tab:green", "groel": "tab:purple"}
-    for group in PROTEIN_GROUPS:
-        sixth_root = protein_results[group]
-        median_sixth_root = np.median(sixth_root)
-        size_est = size_from_sixth_root(median_sixth_root)
-        p16, p84 = np.percentile(sixth_root, [16, 84])
-        size_lo, size_hi = size_from_sixth_root(p16), size_from_sixth_root(p84)
-        ax.scatter([size_est], [median_sixth_root], color=colors[group], s=90,
-                   marker="D", zorder=4, label=f"{group}: ~{size_est:.1f} nm (PS-equivalent)")
-        ax.errorbar([size_est], [median_sixth_root],
-                    xerr=[[size_est - size_lo], [size_hi - size_est]],
-                    color=colors[group], capsize=4)
-
-    ax.set_xlabel("Size (nm) -- PS-equivalent for ferritin/GroEL, see docstring caveat")
-    ax.set_ylabel("Intensity^(1/6)")
-    ax.legend(fontsize=8)
-    ax.set_title("PS sixth-root calibration and protein sizing")
-    plt.tight_layout()
-    plt.savefig(OUTPUT_PLOT, dpi=120)
-    print(f"\nSaved {OUTPUT_PLOT}")

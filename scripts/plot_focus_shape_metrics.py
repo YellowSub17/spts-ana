@@ -41,6 +41,8 @@ from filter_config import SOLIDITY_THRESHOLD
 THUMBNAILS_H5 = "/Users/pat/Documents/work/spts-ana/data/thumbnails.h5"
 SHAPE_METRICS_H5 = "/Users/pat/Documents/work/spts-ana/data/focus_shape_metrics.h5"
 FIGURES_DIR = "/Users/pat/Documents/work/spts-ana/figures"
+EXAMPLES_DIR = os.path.join(FIGURES_DIR, "example_particles")
+DIST_DIR = os.path.join(FIGURES_DIR, "dist")
 
 N_EXAMPLES = 10
 RANDOM_SEED = 0
@@ -114,7 +116,7 @@ def plot_filter_stage_examples(fin, fmetrics, groups):
 
         plt.suptitle(CATEGORY_LABEL[category], color=color, fontweight="bold")
         plt.tight_layout()
-        out_path = os.path.join(FIGURES_DIR, CATEGORY_FILENAME[category])
+        out_path = os.path.join(EXAMPLES_DIR, CATEGORY_FILENAME[category])
         plt.savefig(out_path, dpi=110)
         plt.close(fig)
         print(f"Saved {out_path}")
@@ -153,14 +155,15 @@ def plot_metric_distributions(fin, fmetrics, groups):
 
         plt.suptitle(f"{metric_label} distributions by group and filter stage")
         plt.tight_layout()
-        out_path = os.path.join(FIGURES_DIR, f"distribution_{metric_name}.png")
+        out_path = os.path.join(DIST_DIR, f"distribution_{metric_name}.png")
         plt.savefig(out_path, dpi=110)
         plt.close(fig)
         print(f"Saved {out_path}")
 
 
 if __name__ == "__main__":
-    os.makedirs(FIGURES_DIR, exist_ok=True)
+    os.makedirs(EXAMPLES_DIR, exist_ok=True)
+    os.makedirs(DIST_DIR, exist_ok=True)
 
     fin = h5py.File(THUMBNAILS_H5, "r")
     fmetrics = h5py.File(SHAPE_METRICS_H5, "r")
