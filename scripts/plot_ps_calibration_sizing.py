@@ -1,7 +1,7 @@
 """
-Plots for the PS sixth-root intensity calibration and protein sizing
-(see ps_calibration_sizing.py for the underlying numbers/fit and its docstring
-for the refractive-index caveat, which applies here too).
+Plots for the PS sixth-root intensity calibration (see ps_calibration_sizing.py
+for the underlying numbers/fit, including ferritin/GroEL protein sizing, which
+is not plotted here -- this figure covers the PS standards only).
 
 Uses only the GREEN particles -- flags==True & solidity>=SOLIDITY_THRESHOLD, i.e.
 the particles that pass both filtering stages (see plot_focus_shape_metrics.py for
@@ -14,12 +14,10 @@ Produces two figures:
      per group (ps20/30/40/50nm, ferri, groel).
   2. figures/ps_calibration_size_vs_sixthroot.png
      Median intensity^(1/6) vs. nominal size for the polystyrene spheres, with a
-     linear fit through all four PS standards (20/30/40/50nm). Ferritin and GroEL
-     are also plotted, at their PS-equivalent size read off that fit -- NOT a true
-     physical size, see the refractive-index caveat in ps_calibration_sizing.py.
-     Also overlays the DMA-fitted Gaussian sigma (see fit_dma_gaussian_peaks.py) as
-     a horizontal error bar at each sample with clean DMA data, alongside the
-     optical spread -- a direct visual comparison of the two measurements.
+     linear fit through all four PS standards (20/30/40/50nm). Also overlays the
+     DMA-fitted Gaussian sigma (see fit_dma_gaussian_peaks.py) as a horizontal
+     error bar at each PS sample with clean DMA data, alongside the optical
+     spread -- a direct visual comparison of the two measurements.
 
 Run compute_focus_shape_metrics.py first to generate data/focus_shape_metrics.h5.
 """
@@ -47,8 +45,6 @@ DIST_DIR = os.path.join(FIGURES_DIR, "dist")
 TRIM_PERCENTILES = (2, 98)
 PS_GROUPS_FOR_CALIBRATION = ["ps20nm", "ps30nm", "ps40nm", "ps50nm"]
 PS_NOMINAL_SIZES_NM = {"ps20nm": 20, "ps30nm": 30, "ps40nm": 40, "ps50nm": 50}
-PROTEIN_GROUPS = ["ferri", "groel"]
-PROTEIN_COLOR = {"ferri": "tab:green", "groel": "tab:purple"}
 
 
 def green_intensity(fin, fmetrics, group):
@@ -108,33 +104,21 @@ def plot_size_vs_sixthroot(fin, fmetrics, diameters, distributions):
                     fmt="o", color="tab:blue", capsize=4, zorder=3)
     ax.scatter([], [], color="tab:blue", label="PS 20/30/40/50nm (calibration)")
 
-    # proteins, sized against the fit (PS-equivalent size -- see refractive-index caveat)
-    for group in PROTEIN_GROUPS:
-        sixth_root = green_intensity(fin, fmetrics, group) ** (1 / 6)
-        median_sixth_root = np.median(sixth_root)
-        p16, p84 = np.percentile(sixth_root, [16, 84])
-        size_est = size_from_sixth_root(median_sixth_root)
-        size_lo, size_hi = size_from_sixth_root(p16), size_from_sixth_root(p84)
-        plot_position[group] = (size_est, median_sixth_root)
-        color = PROTEIN_COLOR[group]
-        ax.errorbar([size_est], [median_sixth_root],
-                    xerr=[[size_est - size_lo], [size_hi - size_est]],
-                    fmt="D", color=color, capsize=4, zorder=4,
-                    label=f"{group}: ~{size_est:.1f} nm (PS-equivalent)")
-
     # DMA-fitted Gaussian sigma, drawn as a horizontal error bar at each fitted
-    # sample's plot position (see fit_dma_gaussian_peaks.py)
+    # PS sample's plot position (see fit_dma_gaussian_peaks.py)
     dma_fits = compute_all_fits(diameters, distributions)
     first = True
     for sample, fit in dma_fits.items():
         group = DMA_SAMPLES_TO_FIT[sample]["optical_group"]
+        if group not in plot_position:
+            continue
         x_center, y_center = plot_position[group]
         ax.errorbar([x_center], [y_center], xerr=[[fit["sigma"]], [fit["sigma"]]],
                     fmt="none", color="tab:red", capsize=5, lw=2, zorder=5,
                     label="DMA Gaussian sigma" if first else None)
         first = False
 
-    ax.set_xlabel("Size (nm) -- PS-equivalent for ferritin/GroEL, see docstring caveat")
+    ax.set_xlabel("Size (nm)")
     ax.set_ylabel("Median intensity^(1/6)")
     ax.legend(fontsize=8)
     ax.set_title("Size vs. median intensity^(1/6): PS calibration & DMA cross-check", fontsize=11)
