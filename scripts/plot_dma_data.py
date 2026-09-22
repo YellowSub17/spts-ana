@@ -10,13 +10,18 @@ File format (TSI AIM software export, tab-separated, latin-1 encoded):
   - A footer block of derived per-scan statistics: Median(nm), Mean(nm),
     Geo. Mean(nm), Mode(nm), Geo. Std. Dev., Total Concentration(#/cm3).
 
-This file has 16 scans, all taken on 2026-03-30, spanning roughly 08:15-15:14 --
-a day of DMA runs, presumably of (some subset of) the same particle stocks used
-in the optical thumbnails.h5 analysis (PS 20/30/40/50nm, ferritin, GroEL),
-though the DMA scans aren't labeled with which stock is which -- only sample
-number and time. Match scans to stocks using the run log / acquisition order,
-and by eye against the known nominal sizes (dashed reference lines on the
-overlay plot at 20/30/40/50 nm).
+This file has 16 scans, all taken on 2026-03-30, spanning roughly 08:15-15:14.
+Sample identity per scan number (from the run log) is in SCAN_SAMPLE_LABELS
+below: scans 1-3 = 50nm PS, 4-7 = 40nm PS, 8-9 = 30nm PS, 10-11 = 20nm PS,
+12-14 = GroEL 1uM, 15-16 = Ferritin. Within most blocks, the *first* scan(s)
+after switching samples show a dominant peak pinned at the DMA's lower
+measurement limit (~5.8nm) with the real population barely visible -- almost
+certainly carryover/residual aerosol from the previous sample or drying buffer
+salt, not yet purged from the lines. The *later* scan(s) in each block are the
+more trustworthy steady-state measurement of that sample. 30nm PS and Ferritin
+only got 2 scans each and neither one settles into a clean single-mode
+distribution in that block -- both are likely still contaminated/not
+equilibrated, so treat their DMA stats as unreliable.
 
 Produces two figures in figures/:
   1. dma_distributions_overlay.png -- all 16 scans' dw/dlogDp vs. diameter,
@@ -43,6 +48,28 @@ DMA_FILE = "/Users/pat/Documents/work/spts-ana/data/AIM148.txt"
 FIGURES_DIR = "/Users/pat/Documents/work/spts-ana/figures"
 
 PS_NOMINAL_SIZES_NM = [20, 30, 40, 50]
+
+# scan number (1-indexed) -> sample identity, from the run log
+SCAN_SAMPLE_LABELS = (
+    ["50nm PS"] * 3
+    + ["40nm PS"] * 4
+    + ["30nm PS"] * 2
+    + ["20nm PS"] * 2
+    + ["GroEL 1uM"] * 3
+    + ["Ferritin"] * 2
+)
+
+# the later scan(s) in each block, taken as the steady-state/purged measurement
+# for that sample (see docstring -- earlier scans in a block are often still
+# showing carryover from the previous sample)
+STEADY_STATE_SCAN_NUMBERS = {
+    "50nm PS": [3],
+    "40nm PS": [6, 7],
+    "30nm PS": [8, 9],  # neither looks fully purged -- treat with caution
+    "20nm PS": [10],
+    "GroEL 1uM": [13, 14],
+    "Ferritin": [15, 16],  # neither looks fully purged -- treat with caution
+}
 
 
 def parse_dma_file(path):
@@ -84,18 +111,22 @@ def parse_dma_file(path):
 
 
 def print_summary_table(header, footer, n_scans):
-    print(f"{'#':>3}{'time':>10}{'mode(nm)':>10}{'median(nm)':>12}{'mean(nm)':>10}"
-          f"{'GSD':>7}{'total conc (#/cm3)':>20}")
+    print(f"{'#':>3}{'sample':>12}{'time':>10}{'mode(nm)':>10}{'median(nm)':>12}"
+          f"{'mean(nm)':>10}{'GSD':>7}{'total conc (#/cm3)':>20}")
     for i in range(n_scans):
         time = header["Start Time"][i]
+        sample = SCAN_SAMPLE_LABELS[i]
         mode = float(footer["Mode(nm)"][i])
         median = float(footer["Median(nm)"][i])
         mean = float(footer["Mean(nm)"][i])
         gsd = float(footer["Geo. Std. Dev."][i])
         total_conc_key = [k for k in footer if k.startswith("Total Concentration")][0]
         total_conc = float(footer[total_conc_key][i])
-        print(f"{i + 1:>3}{time:>10}{mode:>10.1f}{median:>12.1f}{mean:>10.1f}"
-              f"{gsd:>7.2f}{total_conc:>20.3e}")
+        steady = i + 1 in STEADY_STATE_SCAN_NUMBERS.get(sample, [])
+        flag = " *" if steady else ""
+        print(f"{i + 1:>3}{sample:>12}{time:>10}{mode:>10.1f}{median:>12.1f}{mean:>10.1f}"
+              f"{gsd:>7.2f}{total_conc:>20.3e}{flag}")
+    print("  (* = steady-state/purged scan, used for the optical comparison)")
 
 
 def plot_overlay(diameters, distributions, header, n_scans):
@@ -103,7 +134,7 @@ def plot_overlay(diameters, distributions, header, n_scans):
     colors = cm.viridis(np.linspace(0, 1, n_scans))
     for i in range(n_scans):
         ax.plot(diameters, distributions[:, i], color=colors[i],
-                label=f"#{i + 1} {header['Start Time'][i]}", lw=1.2)
+                label=f"#{i + 1} {SCAN_SAMPLE_LABELS[i]} ({header['Start Time'][i]})", lw=1.2)
 
     for size in PS_NOMINAL_SIZES_NM:
         ax.axvline(size, color="gray", ls="--", lw=0.8, zorder=0)
@@ -134,7 +165,9 @@ def plot_grid(diameters, distributions, header, footer, n_scans):
         mode = float(footer["Mode(nm)"][i])
         median = float(footer["Median(nm)"][i])
         gsd = float(footer["Geo. Std. Dev."][i])
-        ax.set_title(f"#{i + 1} {header['Start Time'][i]}\n"
+        steady = i + 1 in STEADY_STATE_SCAN_NUMBERS.get(SCAN_SAMPLE_LABELS[i], [])
+        star = " *" if steady else ""
+        ax.set_title(f"#{i + 1} {SCAN_SAMPLE_LABELS[i]}{star} ({header['Start Time'][i]})\n"
                       f"mode={mode:.1f} median={median:.1f} GSD={gsd:.2f}", fontsize=8)
         ax.tick_params(labelsize=7)
     for j in range(n_scans, nrows * ncols):
