@@ -1,5 +1,7 @@
 data/*
 !data/.gitkeep
+!data/confs/
+!data/confs/*.conf
 
 figures/
 
