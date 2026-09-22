@@ -136,3 +136,54 @@ relationship, not a flaw specific to the optical pipeline. The one exception is
 that sample still shows some real excess optical noise beyond what its
 physical polydispersity explains, and would be the place to focus further
 investigation.
+
+## 7. Why the calibration fit needs a nonzero intercept
+
+The PS calibration (section 3) is fit as an affine line,
+`intensity^(1/6) = 0.052*size_nm + 3.058`. Physically, for pure incoherent
+(dark-field) Rayleigh scattering — which is what this setup measures: particles
+sprayed into vacuum, illuminated by laser light, imaged as bright spots, no
+reference field — intensity should scale as `diameter^6` with **no** intercept:
+`intensity^(1/6)` should be exactly proportional to size. Two checks confirm
+the intercept is real and needs explaining, not just fitting flexibility:
+
+- Forcing the fit through the origin makes it dramatically worse: R² drops
+  from 0.9997 to **−1.55** (worse than predicting the mean).
+- The intercept is not explained by the sensor/illumination noise floor
+  (~101 raw intensity units, section 5). Reproducing the intercept as a
+  constant additive background would require B ≈ 4,500 — ~15x the measured
+  noise floor — and even then the fit is poor, because a true constant
+  background can't reproduce how much "extra" signal each group's intercept
+  implies (implied B scales from ~4,700 at 20nm to ~32,600 at 50nm, nearly as
+  steep as the signal itself — not remotely constant).
+
+The real explanation (`plot_detection_floor.py`): a **fixed, size-independent
+hit-detection threshold in the acquisition pipeline**. Looking at every
+detection ever flagged as a hit (before any of our flags/solidity/y-crop
+filtering), all four PS groups bottom out at almost the same absolute minimum
+intensity (~1,000–1,250 raw units, ~3–4x the measured noise floor) regardless
+of nominal particle size:
+
+| group | min detected intensity | as % of group's median intensity |
+|---|---|---|
+| ps20nm | 1,037 | 31.2% |
+| ps30nm | 1,064 | 13.8% |
+| ps40nm | 1,007 | 4.2% |
+| ps50nm | 1,227 | 2.3% |
+
+A per-particle SNR-driven detection limit would shift with the particle's true
+brightness; a fixed pipeline threshold does not — and that's what's observed.
+This fixed floor censors a meaningful fraction of the true (dim) tail for
+ps20nm (~31% of its median) but almost none of ps50nm's (~2%), which is
+exactly the size-dependent gradient needed to turn a true zero-intercept
+`intensity~diameter^6` relationship into the observed affine fit over the
+20–50nm range.
+
+**Implication:** the intercept is a real, physically-understood artifact of
+acquisition-threshold censoring, not a flaw in the sizing approach itself —
+but it means the calibration (and any size read off it) is least trustworthy
+at the small end, where the censoring effect is largest. This reinforces
+section 5's minimum-measurable-size conclusion from a different angle: the
+acquisition threshold, not just per-particle sizing noise, sets a real floor
+on how small a population can be before its measured intensity distribution
+stops representing its true physical distribution.
