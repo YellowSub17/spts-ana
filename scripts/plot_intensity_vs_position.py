@@ -14,7 +14,7 @@ affect all groups the same way, since it's a property of the optical setup, not
 the particle) becomes visible pooled across groups with much better statistics
 than any single group alone.
 
-Produces figures/intensity_vs_xy.png:
+Produces figures/pos/intensity_vs_xy.png:
   - 2D binned heatmap of median normalized intensity^(1/6) across (x, y)
   - 1D profile of median normalized intensity^(1/6) vs x (marginalized over y)
   - 1D profile of median normalized intensity^(1/6) vs y (marginalized over x)
@@ -38,6 +38,7 @@ import plot_focus_shape_metrics as pfsm
 THUMBNAILS_H5 = "/Users/pat/Documents/work/spts-ana/data/thumbnails.h5"
 SHAPE_METRICS_H5 = "/Users/pat/Documents/work/spts-ana/data/focus_shape_metrics.h5"
 FIGURES_DIR = "/Users/pat/Documents/work/spts-ana/figures"
+POS_DIR = os.path.join(FIGURES_DIR, "pos")
 
 PS_GROUPS = ["ps20nm", "ps30nm", "ps40nm"]
 N_XY_BINS = 25
@@ -65,7 +66,7 @@ def pooled_normalized_intensity(fin, fmetrics):
 
 
 if __name__ == "__main__":
-    os.makedirs(FIGURES_DIR, exist_ok=True)
+    os.makedirs(POS_DIR, exist_ok=True)
 
     fin = h5py.File(THUMBNAILS_H5, "r")
     fmetrics = h5py.File(SHAPE_METRICS_H5, "r")
@@ -120,7 +121,7 @@ if __name__ == "__main__":
     plt.suptitle("Intensity vs. position, pooled GREEN ps20/30/40nm "
                   "(normalized by each group's median)")
     plt.tight_layout()
-    out_path = os.path.join(FIGURES_DIR, "intensity_vs_xy.png")
+    out_path = os.path.join(POS_DIR, "intensity_vs_xy.png")
     plt.savefig(out_path, dpi=120)
     plt.close(fig)
     print(f"\nSaved {out_path}")

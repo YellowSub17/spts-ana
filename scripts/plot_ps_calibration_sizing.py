@@ -116,6 +116,14 @@ def plot_size_vs_sixthroot(fin, fmetrics, diameters, distributions):
         ax.errorbar([x_center], [y_center], xerr=[[fit["sigma"]], [fit["sigma"]]],
                     fmt="none", color="tab:red", capsize=5, lw=2, zorder=5,
                     label="DMA Gaussian sigma" if first else None)
+
+        # where the DMA +/- sigma bounds (evaluated on the fit line) fall on
+        # this sample's vertical (intensity) error bar
+        x_lo, x_hi = x_center - fit["sigma"], x_center + fit["sigma"]
+        y_lo, y_hi = slope * x_lo + intercept, slope * x_hi + intercept
+        ax.plot([x_center, x_center], [y_lo, y_hi], marker="_", markersize=16, markeredgewidth=3,
+                 linestyle="none", color="tab:green", zorder=6,
+                 label="DMA sigma bounds on intensity" if first else None)
         first = False
 
     ax.set_xlabel("Size (nm)")
