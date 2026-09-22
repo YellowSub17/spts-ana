@@ -96,3 +96,43 @@ Two distinct questions:
 about a population's median, not about individual particles, and that
 statement is only as good as the assumption that the population is a single
 clean species imaged under uniform conditions.
+
+## 6. Cross-check against DMA (independent sizing measurement)
+
+`data/AIM148.txt` holds 16 DMA (differential mobility analyzer) scans from the
+same day, with a confirmed run log mapping scan number to sample: scans 1–3 =
+50nm PS, 4–7 = 40nm PS, 8–9 = 30nm PS, 10–11 = 20nm PS, 12–14 = GroEL 1uM,
+15–16 = Ferritin (`plot_dma_data.py`). Within most blocks, the first scan(s)
+after switching samples still show carryover from the previous sample (peak
+pinned at the DMA's lower limit, ~5.8nm); the later scan(s) are the trustworthy
+steady-state measurement. 30nm PS and Ferritin only got 2 scans each and
+neither settles into a clean distribution, so their DMA statistics are
+unreliable — no meaningful comparison is drawn for those two.
+
+Converting both measurements to the same metric (GSD, geometric std. dev. =
+D84/D50) gives a direct, apples-to-apples comparison of measurement spread:
+
+| sample | optical GSD | DMA GSD | ratio (optical/DMA) |
+|---|---|---|---|
+| 20nm PS | 1.79 | 1.31 | 1.37 |
+| 40nm PS | 1.41 | 1.56 | 0.90 |
+| 50nm PS | 1.38 | 1.93 | 0.72 |
+| GroEL | 1.59 | 1.42 | 1.12 |
+| 30nm PS | 1.60 | 2.00 | — (DMA unreliable) |
+| Ferritin | 1.68 | 1.50 | — (DMA unreliable) |
+
+For every sample with usable DMA data, the optical and DMA spreads are within
+~10–40% of each other — the same order of magnitude, not wildly different.
+For 40nm and 50nm PS, the optical measurement is actually *tighter* than the
+independently-measured physical polydispersity.
+
+**This reframes the "error is too large" concern.** Since scattered intensity
+scales as diameter⁶, even the DMA-confirmed real physical polydispersity
+(GSD ~1.3–1.9) is expected to produce a large spread in optical intensity/
+inferred size on its own — most of what looked like measurement noise is
+consistent with genuine sample polydispersity, amplified by the sixth-power
+relationship, not a flaw specific to the optical pipeline. The one exception is
+20nm PS, where the optical spread is measurably wider than the DMA spread —
+that sample still shows some real excess optical noise beyond what its
+physical polydispersity explains, and would be the place to focus further
+investigation.
