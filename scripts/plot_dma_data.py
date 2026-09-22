@@ -23,13 +23,10 @@ only got 2 scans each and neither one settles into a clean single-mode
 distribution in that block -- both are likely still contaminated/not
 equilibrated, so treat their DMA stats as unreliable.
 
-Produces two figures in figures/:
-  1. dma_distributions_overlay.png -- all 16 scans' dw/dlogDp vs. diameter,
-     log-x, colored by scan order, with dashed reference lines at the PS
-     nominal sizes for comparison to the optical sizing work.
-  2. dma_distributions_grid.png -- one panel per scan, each annotated with its
-     start time and Mode/Median/GSD from the footer stats, for a closer look
-     at each individual scan's shape (single mode vs. multiple populations).
+Produces figures/dma_distributions_grid.png -- one panel per scan, each
+annotated with its sample, start time, and Mode/Median/GSD from the footer
+stats, for a closer look at each individual scan's shape (single mode vs.
+multiple populations).
 
 Also prints a summary table of Mode/Median/Mean/GSD/Total Concentration per
 scan.
@@ -42,7 +39,6 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib import cm
 
 DMA_FILE = "/Users/pat/Documents/work/spts-ana/data/AIM148.txt"
 FIGURES_DIR = "/Users/pat/Documents/work/spts-ana/figures"
@@ -129,29 +125,6 @@ def print_summary_table(header, footer, n_scans):
     print("  (* = steady-state/purged scan, used for the optical comparison)")
 
 
-def plot_overlay(diameters, distributions, header, n_scans):
-    fig, ax = plt.subplots(figsize=(9, 6))
-    colors = cm.viridis(np.linspace(0, 1, n_scans))
-    for i in range(n_scans):
-        ax.plot(diameters, distributions[:, i], color=colors[i],
-                label=f"#{i + 1} {SCAN_SAMPLE_LABELS[i]} ({header['Start Time'][i]})", lw=1.2)
-
-    for size in PS_NOMINAL_SIZES_NM:
-        ax.axvline(size, color="gray", ls="--", lw=0.8, zorder=0)
-
-    ax.set_xscale("log")
-    ax.set_yscale("log")
-    ax.set_xlabel("Diameter (nm)")
-    ax.set_ylabel("dW/dlogDp (number)")
-    ax.set_title("DMA distributions, all scans (dashed lines: PS nominal 20/30/40/50nm)")
-    ax.legend(fontsize=6, ncol=2)
-    plt.tight_layout()
-    out_path = os.path.join(FIGURES_DIR, "dma_distributions_overlay.png")
-    plt.savefig(out_path, dpi=120)
-    plt.close(fig)
-    print(f"\nSaved {out_path}")
-
-
 def plot_grid(diameters, distributions, header, footer, n_scans):
     ncols = 4
     nrows = int(np.ceil(n_scans / ncols))
@@ -190,5 +163,4 @@ if __name__ == "__main__":
           f"({diameters.min():.2f}-{diameters.max():.1f} nm)\n")
 
     print_summary_table(header, footer, n_scans)
-    plot_overlay(diameters, distributions, header, n_scans)
     plot_grid(diameters, distributions, header, footer, n_scans)
