@@ -19,17 +19,27 @@
 #SBATCH --cpus-per-task=1
 #
 # The partition to use.
-#SBATCH -p regular
+#SBATCH -p fast
 #
 # One array task per config file (indices 0-7 for 8 configs)
 #SBATCH --array=0-7
 #
 # Log files, one pair per array task
-#SBATCH --output=.slurm-output/spts_sweep_%A_%a.out
-#SBATCH --error=.slurm-output/spts_sweep_%A_%a.err
+#SBATCH --output=.slurm/spts_sweep_%A_%a.out
+#SBATCH --error=.slurm/spts_sweep_%A_%a.err
 
 CONF_DIR=/home/pat/spts-ana/data/confs
 CXI_FILE=$1
+
+
+source /home/pat/miniconda3/etc/profile.d/conda.sh
+conda activate spts
+export PATH="$CONDA_PREFIX/bin:$PATH"   # defensive, in case something on PATH still comes first
+hash -r
+
+echo $(which python)
+
+
 
 if [ -z "$CXI_FILE" ]; then
     echo "Usage: sbatch slurm_run_spts_wconf.sh <cxi_file>" >&2
