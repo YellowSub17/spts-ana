@@ -1,4 +1,5 @@
 data/*
+scripts/.slurm/*
 !data/.gitkeep
 !data/confs/
 !data/confs/*.conf
