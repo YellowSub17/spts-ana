@@ -28,8 +28,6 @@ def get_parser():
     parser.add_argument("--PCA", type=int, default=2)
     parser.add_argument("--groups", type=str, nargs='+', default=list(ps_data_ranges.keys()))
     parser.add_argument("--tag", type=str, default='')
-    
-    
     return parser
 
 

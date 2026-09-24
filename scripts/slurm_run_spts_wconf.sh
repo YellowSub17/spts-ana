@@ -44,6 +44,8 @@ hash -r
 echo $(which python)
 
 
+echo $(date)
+
 
 if [ -z "$CXI_FILE" ]; then
     echo "Usage: sbatch slurm_run_spts_wconf.sh <cxi_file>" >&2
@@ -55,3 +57,5 @@ CONF="${CONFS[$SLURM_ARRAY_TASK_ID]}"
 
 echo "Task $SLURM_ARRAY_TASK_ID: running SPTS with config $CONF on $CXI_FILE (MPI, $SLURM_NTASKS ranks)"
 run_spts_wconf.py "$CONF" "$CXI_FILE" -m
+
+echo $(date)

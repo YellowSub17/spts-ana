@@ -1,16 +1,35 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import comborun
-from config import generate_full_paths, ps_data_ranges
 import h5py
 import hdf5plugin
+import sys
+
+thresh = int(sys.argv[1])
+
+ps_data_ranges ={
+    # 'ps20nm' :[x for x in range(1271, 1281)],
+    # 'ps30nm' :[x for x in range(1263, 1270)],
+    'ps40nm' :[x for x in range(1252, 1260)],
+    'ps50nm' :[x for x in range(1245, 1251)],
+}
 
 
-file_path = '/home/pat/spts-ana/data/peak_data.h5'
+
+def generate_full_paths(run_nums, dmax):
+    return list(map(lambda run_num: f'/home/pat/spts-ana/data/data{run_num:05}_spts{dmax}t{thresh}/spts.cxi', run_nums))
 
 
 
-with h5py.File(file_path, "w") as f:
+
+out_file_path = f'/home/pat/spts-ana/data/thumbnails_t{thresh}.h5'
+
+
+
+
+
+
+with h5py.File(out_file_path, "w") as f:
     for group in ps_data_ranges.keys():
         print(group)
         cbr1 = comborun.ComboRun(generate_full_paths(ps_data_ranges[group], 25))
@@ -36,7 +55,7 @@ with h5py.File(file_path, "w") as f:
 
         # --- H5PY WRITE END ---
 
-print(f"All groups successfully written to {file_path}")
+print(f"All groups successfully written to {out_file_path}")
 
 
 
