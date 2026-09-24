@@ -56,7 +56,7 @@ PS_GROUPS_FOR_CALIBRATION = ["ps20nm", "ps30nm", "ps40nm", "ps50nm"]
 PS_NOMINAL_SIZES_NM = {"ps20nm": 20, "ps30nm": 30, "ps40nm": 40, "ps50nm": 50}
 
 # detection/summation window radius (px) used upstream for the 'is' intensity field
-# (see src/comborun/comborun.py: ComboRun(..., 25) -> the r1 / large window)
+# (see src/spts_ana/comborun/comborun.py: ComboRun(..., 25) -> the r1 / large window)
 SUMMATION_RADIUS_PX = 25
 N_BACKGROUND_SAMPLES_PER_GROUP = 500
 RANDOM_SEED = 1

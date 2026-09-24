@@ -4,7 +4,7 @@ Recreates the particle-grouping / focus-filtering work from the thumbnails.h5 an
 Background
 ----------
 thumbnails.h5 already carries a boolean `flags` dataset per group, produced by the
-old two-radius method (src/comborun/filtering.py: filter_focused): a particle is
+old two-radius method (src/spts_ana/comborun/filtering.py: filter_focused): a particle is
 "focused" if the summed intensity in a 7px window is >= 90% of the summed intensity
 in a 25px window (comparing amplitudes, i.e. intensity**(1/6)).
 

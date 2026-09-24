@@ -4,7 +4,7 @@ Diagnostic plots for the focus/shape filtering work (see compute_focus_shape_met
 Particles go through two filtering stages, and we color-code by where they land:
 
   RED    "fails old focus test" -- flags==False. Rejected by the original two-radius
-         intensity-ratio focus test (src/comborun/filtering.py: filter_focused).
+         intensity-ratio focus test (src/spts_ana/comborun/filtering.py: filter_focused).
   YELLOW "passes old test, fails solidity test" -- flags==True but solidity <
          SOLIDITY_THRESHOLD. These are the bean/kidney/double-lobed particles that
          the intensity-ratio test alone doesn't catch (not a single convex blob).

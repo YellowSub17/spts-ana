@@ -19,8 +19,21 @@ dependencies = [
     "mulpro @ git+https://github.com/YellowSub17/mulpro.git",
 ]
 
+# spts-ana's own modules (comborun, config, autoencoder, boxselector) live
+# under src/spts_ana/, NOT bare src/ -- this is deliberate. The spts git
+# submodule (src/spts/) is a separate, self-contained project with its own
+# pyproject.toml, installed independently, and also happens to sit directly
+# under src/. If this package's install ever needed src/ itself on sys.path
+# (which editable installs can fall back to regardless of packages.find
+# filtering), it would expose src/spts -- the submodule's project root, which
+# has no __init__.py -- as a phantom namespace-package candidate for the name
+# "spts", colliding with the real spts package ("module 'spts' has no
+# attribute 'logger'"-style failures, depending on how the import gets
+# triggered). Scoping this package's root to src/spts_ana/ instead means the
+# submodule is never on the exposed path at all, regardless of install
+# strategy.
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["src/spts_ana"]
 
 [tool.setuptools.package-dir]
-"" = "src"
+"" = "src/spts_ana"
