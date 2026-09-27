@@ -31,27 +31,30 @@ class ComboRun_Filters:
         # this indicates the particle is in focus
         # so, we want the particles where r1 > r2 and r2 > r1*focus_threshold
 
-        #look up dictionary that hashes the xy position of the peaks "a"
-        # key for the dictionary
-        # store the peak in the dictionary
-        xya_dict = {}
-        for peak_a_x, peak_a_y, peak_a_i in zip(self.peak_xs, self.peak_ys, self.peak_is):
-            xya_key = (peak_a_x, peak_a_y) 
-            xya_dict[xya_key] = peak_a_i    
+        # f must be in self's (r1's) peak order, so look up each r1 peak's matching r2 peak
+        # by (run, x, y) rather than relying on the two analyses listing peaks in the same
+        # order -- spts does not guarantee that, and when the orders differ the flags end up
+        # attached to the wrong particles.
+        # key for the dictionary: which run (fname index, same file list for r1 and r2) and xy
+        xyb_dict = {}
+        for fname_ind, peak_b_x, peak_b_y, peak_b_i in zip(r2.fname_inds, r2.peak_xs, r2.peak_ys, r2.peak_is):
+            xyb_dict[(fname_ind, peak_b_x, peak_b_y)] = peak_b_i
+        if len(xyb_dict) != len(r2.peak_is):
+            print(f'Warning: {len(r2.peak_is) - len(xyb_dict)} r2 peaks share a (run, x, y) key with another peak')
 
+        # for each "a" peak, find the "b" peak at the same position in the same run.
+        # peaks with no match are not flagged as focused.
+        f = np.zeros(len(self.peak_is), dtype=bool)
+        n_unmatched = 0
+        for n, (fname_ind, peak_a_x, peak_a_y, peak_a_i) in enumerate(zip(self.fname_inds, self.peak_xs, self.peak_ys, self.peak_is)):
+            peak_b_i = xyb_dict.get((fname_ind, peak_a_x, peak_a_y))
+            if peak_b_i is None:
+                n_unmatched += 1
+                continue
+            # b is within a and 0.9*a
+            f[n] = peak_a_i**(1/6) >= peak_b_i**(1/6) >= focus_threshold*peak_a_i**(1/6)
+        if n_unmatched:
+            print(f'Warning: {n_unmatched} of {len(self.peak_is)} r1 peaks have no matching r2 peak')
 
-        # for each "b" peak
-        # what is the key in the dictionary that would be shared with "a"
-        # if the key exists there is an "a" peak that matches this "b" peak
-        # add the a an b peaks to the list of pairs.
-        pairs = [] 
-        for peak_b_x, peak_b_y, peak_b_i in zip(r2.peak_xs, r2.peak_ys, r2.peak_is): 
-            xyb_key = (peak_b_x, peak_b_y) 
-            if xyb_key in xya_dict:  
-                pairs.append( (xya_dict[xyb_key], peak_b_i)) 
-
-        # pairs is a list of pairs of matching peaks
-        # filter the pairs so b is with a and 0.9*a
-        f = np.array(list(map( lambda pair : pair[0]**(1/6) >= pair[1]**(1/6) >= focus_threshold*pair[0]**(1/6), pairs)))
         if update: self.filter = np.logical_and(f, self.filter)
         return f

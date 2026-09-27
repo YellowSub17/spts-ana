@@ -2,17 +2,23 @@
 Check that two thumbnails h5 files hold the same data, group by group.
 
     python compare_thumbnails_h5.py data/thumbnails.h5 data/thumbnails_t20.h5
+    python compare_thumbnails_h5.py data/thumbnails.h5 data/thumbnails_t10.h5 --groups groel ferri
 """
-import sys
+import argparse
 
 import h5py
 import numpy as np
 
 
-a_path, b_path = sys.argv[1], sys.argv[2]
+parser = argparse.ArgumentParser(description="Compare two thumbnails h5 files")
+parser.add_argument("a_path")
+parser.add_argument("b_path")
+parser.add_argument("--groups", type=str, nargs='+', default=None, help="only compare these groups (default: all)")
+args = parser.parse_args()
+a_path, b_path = args.a_path, args.b_path
 ok = True
 with h5py.File(a_path, 'r') as a, h5py.File(b_path, 'r') as b:
-    for group in sorted(set(a) | set(b)):
+    for group in args.groups or sorted(set(a) | set(b)):
         if group not in a or group not in b:
             print(f'{group}: only in {a_path if group in a else b_path}')
             ok = False

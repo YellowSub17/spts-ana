@@ -9,8 +9,9 @@ The d25 analysis supplies the peaks/thumbnails; the d7 analysis is only used
 for the focus filter (ComboRun.filter_focused), stored as 'flags'. Output
 layout matches the original data/thumbnails.h5 (one group per sample, same
 dataset names/dtypes/chunking), so downstream scripts work unchanged if pointed
-at the new file. The old thumbnails.h5 was produced with threshold 20, so
-thumbnails_t20.h5 should reproduce it.
+at the new file. The old thumbnails.h5 mixed thresholds: the ps* groups were
+analysed at threshold 20 and groel/ferri at threshold 10. So thumbnails_t20.h5
+should reproduce its ps* groups and thumbnails_t10.h5 its groel/ferri groups.
 
 Usage:
     python save_peakdata_h5.py 20
