@@ -2,7 +2,7 @@ from pathlib import Path
 import argparse
 
 # This locates the root relative to THIS config file
-PROJ_ROOT = Path(__file__).resolve().parent.parent
+PROJ_ROOT = Path(__file__).resolve().parents[2]  # src/spts_ana/config.py -> repo root
 DATA_DIR = PROJ_ROOT / "data" 
 
 
