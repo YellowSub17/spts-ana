@@ -42,6 +42,7 @@ same row order as thumbnails.h5), each containing:
 Run this after thumbnails.h5 exists. It does not modify thumbnails.h5.
 """
 
+import argparse
 import time
 
 import h5py
@@ -152,7 +153,13 @@ def analyze(thumb):
 
 
 if __name__ == "__main__":
-    fin = h5py.File(THUMBNAILS_H5, "r")
+    parser = argparse.ArgumentParser(description="Compute per-particle shape metrics from a thumbnails h5")
+    parser.add_argument("--thumbnails", default=THUMBNAILS_H5)
+    parser.add_argument("--output", default=OUTPUT_H5)
+    args = parser.parse_args()
+    OUTPUT_H5 = args.output
+
+    fin = h5py.File(args.thumbnails, "r")
     fout = h5py.File(OUTPUT_H5, "w")
 
     for group in fin.keys():

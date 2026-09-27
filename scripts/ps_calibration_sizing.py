@@ -54,6 +54,8 @@ plot_ps_calibration_sizing.py -> figures/ps_calibration_size_vs_sixthroot.png.
 Run compute_focus_shape_metrics.py first to generate data/focus_shape_metrics.h5.
 """
 
+import argparse
+
 import h5py
 import numpy as np
 from scipy import stats
@@ -70,11 +72,11 @@ PS_NOMINAL_SIZES_NM = {"ps20nm": 20, "ps30nm": 30, "ps40nm": 40, "ps50nm": 50}
 PROTEIN_GROUPS = ["ferri", "groel"]
 
 
-def focused_sixth_root_intensity(fin, fmetrics, group):
+def focused_sixth_root_intensity(fin, fmetrics, group, use_flags=True):
     """Sixth-root of summed intensity for particles passing flags & solidity filter
     and the y-illumination-band crop (see filter_config.py), with the top/bottom
-    TRIM_PERCENTILES of intensity trimmed."""
-    flags = fin[group]["flags"][:]
+    TRIM_PERCENTILES of intensity trimmed. use_flags=False skips the flags filter."""
+    flags = fin[group]["flags"][:] if use_flags else np.ones(len(fin[group]["is"]), dtype=bool)
     solidity = fmetrics[group]["solidity"][:]
     ys = fin[group]["ys"][:]
     valid = ~np.isnan(solidity)
@@ -93,13 +95,23 @@ def focused_sixth_root_intensity(fin, fmetrics, group):
 
 
 if __name__ == "__main__":
-    fin = h5py.File(THUMBNAILS_H5, "r")
-    fmetrics = h5py.File(SHAPE_METRICS_H5, "r")
+    parser = argparse.ArgumentParser(description="PS sixth-root intensity calibration and protein sizing")
+    parser.add_argument("--thumbnails", default=THUMBNAILS_H5)
+    parser.add_argument("--shape-metrics", default=SHAPE_METRICS_H5,
+                        help="focus_shape_metrics h5 computed from the same --thumbnails file")
+    parser.add_argument("--no-flags", action="store_true", help="skip the flags focus filter (solidity + y crop only)")
+    args = parser.parse_args()
+
+    fin = h5py.File(args.thumbnails, "r")
+    fmetrics = h5py.File(args.shape_metrics, "r")
+    for group in fin:
+        if len(fmetrics[group]["solidity"]) != len(fin[group]["is"]):
+            raise SystemExit(f"{args.shape_metrics} doesn't match {args.thumbnails} ({group} row counts differ)")
 
     # --- fit the PS calibration line on all four PS standards ---
     medians = {}
     for group in PS_GROUPS_FOR_CALIBRATION:
-        sixth_root, n_before_trim = focused_sixth_root_intensity(fin, fmetrics, group)
+        sixth_root, n_before_trim = focused_sixth_root_intensity(fin, fmetrics, group, use_flags=not args.no_flags)
         medians[group] = np.median(sixth_root)
         print(f"{group}: n={n_before_trim} (after trim {len(sixth_root)})  "
               f"median intensity^(1/6) = {medians[group]:.4f}")
@@ -117,7 +129,7 @@ if __name__ == "__main__":
     protein_results = {}
     print()
     for group in PROTEIN_GROUPS:
-        sixth_root, n_before_trim = focused_sixth_root_intensity(fin, fmetrics, group)
+        sixth_root, n_before_trim = focused_sixth_root_intensity(fin, fmetrics, group, use_flags=not args.no_flags)
         protein_results[group] = sixth_root
         median_sixth_root = np.median(sixth_root)
         p16, p84 = np.percentile(sixth_root, [16, 84])
