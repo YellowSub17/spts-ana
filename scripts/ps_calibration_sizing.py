@@ -17,9 +17,13 @@ set, the top/bottom 2% of summed intensity is additionally trimmed per group to
 reduce the influence of aggregates/debris and residual detection-threshold noise
 on the median.
 
-With the y-illumination crop applied, all four PS standards (20/30/40/50nm) give
-a near-perfect linear fit: R^2 ~ 0.9997. See ANALYSIS_SUMMARY_p2.md for the
-current summary of the full filtering pipeline and findings.
+The calibration is fitted through zero on ps30/40/50nm only: Rayleigh scattering
+gives intensity ~ D^6, so intensity^(1/6) = k * D with no intercept. ps20nm is
+reported (and plotted) but left out of the fit: a typical 20nm bead sits at the
+detection floor, so only its bright tail is detected and its median is biased
+high. (The earlier 4-point affine fit with R^2 ~ 0.9997 came from spts
+center_of_mass peak centering, which made the focus test reject most bright
+ps40/ps50 particles -- use spts peak_centering = center_to_max output.)
 
 IMPORTANT CAVEAT -- refractive index / optical contrast, not yet corrected for:
     This calibration curve is built entirely on polystyrene, which has a high,
@@ -58,7 +62,6 @@ import argparse
 
 import h5py
 import numpy as np
-from scipy import stats
 
 from filter_config import SOLIDITY_THRESHOLD, Y_ILLUMINATION_MIN, Y_ILLUMINATION_MAX
 
@@ -67,9 +70,22 @@ SHAPE_METRICS_H5 = "/Users/pat/Documents/work/spts-ana/data/focus_shape_metrics.
 
 TRIM_PERCENTILES = (2, 98)
 
-PS_GROUPS_FOR_CALIBRATION = ["ps20nm", "ps30nm", "ps40nm", "ps50nm"]
+PS_GROUPS_FOR_CALIBRATION = ["ps30nm", "ps40nm", "ps50nm"]
+# shown alongside the calibration but not fitted (censored by the detection floor)
+PS_GROUPS_NOT_FITTED = ["ps20nm"]
 PS_NOMINAL_SIZES_NM = {"ps20nm": 20, "ps30nm": 30, "ps40nm": 40, "ps50nm": 50}
 PROTEIN_GROUPS = ["ferri", "groel"]
+
+
+def fit_through_origin(sizes_nm, sixth_roots):
+    """Least-squares slope k for intensity^(1/6) = k * size_nm (no intercept).
+    R^2 is 1 - SS_res/SS_tot about the mean, so it's directly comparable to an
+    ordinary fit's R^2 (and can be low or negative if a line through zero fits badly)."""
+    sizes_nm, sixth_roots = np.asarray(sizes_nm, float), np.asarray(sixth_roots, float)
+    k = np.sum(sizes_nm * sixth_roots) / np.sum(sizes_nm**2)
+    ss_res = np.sum((sixth_roots - k * sizes_nm) ** 2)
+    ss_tot = np.sum((sixth_roots - sixth_roots.mean()) ** 2)
+    return k, 1 - ss_res / ss_tot
 
 
 def focused_sixth_root_intensity(fin, fmetrics, group, use_flags=True):
@@ -108,9 +124,9 @@ if __name__ == "__main__":
         if len(fmetrics[group]["solidity"]) != len(fin[group]["is"]):
             raise SystemExit(f"{args.shape_metrics} doesn't match {args.thumbnails} ({group} row counts differ)")
 
-    # --- fit the PS calibration line on all four PS standards ---
+    # --- fit the PS calibration line through zero on ps30/40/50 (ps20 reported, not fitted) ---
     medians = {}
-    for group in PS_GROUPS_FOR_CALIBRATION:
+    for group in PS_GROUPS_NOT_FITTED + PS_GROUPS_FOR_CALIBRATION:
         sixth_root, n_before_trim = focused_sixth_root_intensity(fin, fmetrics, group, use_flags=not args.no_flags)
         medians[group] = np.median(sixth_root)
         print(f"{group}: n={n_before_trim} (after trim {len(sixth_root)})  "
@@ -118,12 +134,18 @@ if __name__ == "__main__":
 
     xs = np.array([PS_NOMINAL_SIZES_NM[g] for g in PS_GROUPS_FOR_CALIBRATION])
     ys = np.array([medians[g] for g in PS_GROUPS_FOR_CALIBRATION])
-    slope, intercept, r, _, _ = stats.linregress(xs, ys)
-    print(f"\nCalibration (ps20/30/40/50): "
-          f"intensity^(1/6) = {slope:.5f} * size_nm + {intercept:.5f}   R^2={r**2:.4f}")
+    slope, r2 = fit_through_origin(xs, ys)
+    print(f"\nCalibration (ps30/40/50, through zero): "
+          f"intensity^(1/6) = {slope:.5f} * size_nm   R^2={r2:.4f}")
 
     def size_from_sixth_root(sixth_root_value):
-        return (sixth_root_value - intercept) / slope
+        return sixth_root_value / slope
+
+    for group in PS_GROUPS_NOT_FITTED:
+        predicted = slope * PS_NOMINAL_SIZES_NM[group]
+        print(f"{group} (not fitted): measured median {medians[group]:.4f} vs line {predicted:.4f} "
+              f"-> reads as {size_from_sixth_root(medians[group]):.1f} nm "
+              f"(expected median intensity {predicted**6:.0f})")
 
     # --- size the proteins against that line ---
     protein_results = {}

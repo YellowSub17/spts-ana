@@ -14,7 +14,8 @@ Produces two figures:
      per group (ps20/30/40/50nm, ferri, groel).
   2. figures/ps_calibration_size_vs_sixthroot.png
      Median intensity^(1/6) vs. nominal size for the polystyrene spheres, with a
-     linear fit through all four PS standards (20/30/40/50nm). Also overlays the
+     line through zero fitted to ps30/40/50nm (see ps_calibration_sizing.py);
+     ps20nm is plotted but not fitted. Also overlays the
      DMA-fitted Gaussian sigma (see fit_dma_gaussian_peaks.py) as a horizontal
      error bar at each PS sample with clean DMA data, alongside the optical
      spread -- a direct visual comparison of the two measurements.
@@ -22,11 +23,11 @@ Produces two figures:
 Run compute_focus_shape_metrics.py first to generate data/focus_shape_metrics.h5.
 """
 
+import argparse
 import os
 
 import h5py
 import numpy as np
-from scipy import stats
 import matplotlib
 
 matplotlib.use("Agg")
@@ -36,14 +37,16 @@ import plot_focus_shape_metrics as pfsm
 from filter_config import Y_ILLUMINATION_MIN, Y_ILLUMINATION_MAX
 from plot_dma_data import parse_dma_file, DMA_FILE
 from fit_dma_gaussian_peaks import DMA_SAMPLES_TO_FIT, compute_all_fits
+from ps_calibration_sizing import PS_GROUPS_FOR_CALIBRATION, PS_GROUPS_NOT_FITTED, fit_through_origin
 
 THUMBNAILS_H5 = "/Users/pat/Documents/work/spts-ana/data/thumbnails.h5"
 SHAPE_METRICS_H5 = "/Users/pat/Documents/work/spts-ana/data/focus_shape_metrics.h5"
 FIGURES_DIR = "/Users/pat/Documents/work/spts-ana/figures"
 DIST_DIR = os.path.join(FIGURES_DIR, "dist")
+# appended to every output filename (e.g. "_t10"); set from --tag
+TAG = ""
 
 TRIM_PERCENTILES = (2, 98)
-PS_GROUPS_FOR_CALIBRATION = ["ps20nm", "ps30nm", "ps40nm", "ps50nm"]
 PS_NOMINAL_SIZES_NM = {"ps20nm": 20, "ps30nm": 30, "ps40nm": 40, "ps50nm": 50}
 
 
@@ -67,42 +70,44 @@ def plot_intensity_distributions(fin, fmetrics, groups):
         ax.set_xlabel("log10(summed intensity)")
     plt.suptitle("Summed intensity distributions -- GREEN particles only (passes both filters)")
     plt.tight_layout()
-    out_path = os.path.join(DIST_DIR, "distribution_intensity_green.png")
+    out_path = os.path.join(DIST_DIR, f"distribution_intensity_green{TAG}.png")
     plt.savefig(out_path, dpi=120)
     plt.close(fig)
     print(f"Saved {out_path}")
 
 
 def plot_size_vs_sixthroot(fin, fmetrics, diameters, distributions):
-    # calibration fit on all four PS standards
+    # calibration fit through zero on ps30/40/50 (ps20 plotted, not fitted)
     medians = {}
     spreads = {}
-    for group in PS_GROUPS_FOR_CALIBRATION:
+    for group in PS_GROUPS_NOT_FITTED + PS_GROUPS_FOR_CALIBRATION:
         sixth_root = green_intensity(fin, fmetrics, group) ** (1 / 6)
         medians[group] = np.median(sixth_root)
         spreads[group] = np.percentile(sixth_root, [16, 84])
 
     xs = np.array([PS_NOMINAL_SIZES_NM[g] for g in PS_GROUPS_FOR_CALIBRATION])
     ys = np.array([medians[g] for g in PS_GROUPS_FOR_CALIBRATION])
-    slope, intercept, r, _, _ = stats.linregress(xs, ys)
-
-    def size_from_sixth_root(v):
-        return (v - intercept) / slope
+    slope, r2 = fit_through_origin(xs, ys)
+    intercept = 0.0
 
     fig, ax = plt.subplots(figsize=(7, 5.5))
     xfit = np.linspace(0, 55, 100)
-    ax.plot(xfit, slope * xfit + intercept, "k--", label=f"PS calibration fit (R^2={r**2:.4f})")
+    ax.plot(xfit, slope * xfit, "k--", label=f"PS fit through zero, ps30-50 (R^2={r2:.4f})")
 
     # PS points used in the fit, with 16-84th percentile error bars
     # (plot_position tracks each group's (x, y) on this plot, for the DMA overlay below)
     plot_position = {}
-    for group in PS_GROUPS_FOR_CALIBRATION:
+    for group in PS_GROUPS_NOT_FITTED + PS_GROUPS_FOR_CALIBRATION:
+        fitted = group in PS_GROUPS_FOR_CALIBRATION
         lo, hi = spreads[group]
         plot_position[group] = (PS_NOMINAL_SIZES_NM[group], medians[group])
         ax.errorbar([PS_NOMINAL_SIZES_NM[group]], [medians[group]],
                     yerr=[[medians[group] - lo], [hi - medians[group]]],
-                    fmt="o", color="tab:blue", capsize=4, zorder=3)
-    ax.scatter([], [], color="tab:blue", label="PS 20/30/40/50nm (calibration)")
+                    fmt="o" if fitted else "s", color="tab:blue" if fitted else "tab:gray",
+                    mfc="tab:blue" if fitted else "none", capsize=4, zorder=3)
+    ax.scatter([], [], color="tab:blue", label="PS 30/40/50nm (fitted)")
+    ax.scatter([], [], marker="s", facecolors="none", edgecolors="tab:gray",
+               label="PS 20nm (not fitted: at detection floor)")
 
     # DMA-fitted Gaussian sigma, drawn as a horizontal error bar at each fitted
     # PS sample's plot position (see fit_dma_gaussian_peaks.py)
@@ -131,19 +136,27 @@ def plot_size_vs_sixthroot(fin, fmetrics, diameters, distributions):
     ax.legend(fontsize=8)
     ax.set_title("Size vs. median intensity^(1/6): PS calibration & DMA cross-check", fontsize=11)
     plt.tight_layout()
-    out_path = os.path.join(FIGURES_DIR, "ps_calibration_size_vs_sixthroot.png")
+    out_path = os.path.join(FIGURES_DIR, f"ps_calibration_size_vs_sixthroot{TAG}.png")
     plt.savefig(out_path, dpi=120)
     plt.close(fig)
     print(f"Saved {out_path}")
-    print(f"Calibration: intensity^(1/6) = {slope:.5f} * size_nm + {intercept:.5f}  R^2={r**2:.4f}")
+    print(f"Calibration (ps30/40/50, through zero): intensity^(1/6) = {slope:.5f} * size_nm  R^2={r2:.4f}")
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="PS calibration plots (GREEN particles only)")
+    parser.add_argument("--thumbnails", default=THUMBNAILS_H5)
+    parser.add_argument("--shape-metrics", default=SHAPE_METRICS_H5,
+                        help="focus_shape_metrics h5 computed from the same --thumbnails file")
+    parser.add_argument("--tag", default="", help='appended to output filenames, e.g. "_t10"')
+    args = parser.parse_args()
+    TAG = args.tag
+
     os.makedirs(FIGURES_DIR, exist_ok=True)
     os.makedirs(DIST_DIR, exist_ok=True)
 
-    fin = h5py.File(THUMBNAILS_H5, "r")
-    fmetrics = h5py.File(SHAPE_METRICS_H5, "r")
+    fin = h5py.File(args.thumbnails, "r")
+    fmetrics = h5py.File(args.shape_metrics, "r")
     groups = list(fin.keys())
     header, diameters, distributions, footer = parse_dma_file(DMA_FILE)
 

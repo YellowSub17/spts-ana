@@ -27,6 +27,7 @@ Run compute_focus_shape_metrics.py first to generate data/focus_shape_metrics.h5
 Figures are written to the figures/ directory (created if it doesn't exist).
 """
 
+import argparse
 import os
 
 import h5py
@@ -43,6 +44,8 @@ SHAPE_METRICS_H5 = "/Users/pat/Documents/work/spts-ana/data/focus_shape_metrics.
 FIGURES_DIR = "/Users/pat/Documents/work/spts-ana/figures"
 EXAMPLES_DIR = os.path.join(FIGURES_DIR, "example_particles")
 DIST_DIR = os.path.join(FIGURES_DIR, "dist")
+# appended to every output filename (e.g. "_t10"); set from --tag
+TAG = ""
 
 N_EXAMPLES = 10
 RANDOM_SEED = 0
@@ -63,9 +66,9 @@ CATEGORY_LABEL = {
     PASSES_BOTH: "GREEN -- passes both filters (used in analysis)",
 }
 CATEGORY_FILENAME = {
-    FAILS_OLD_TEST: "examples_RED_fails_old_focus_test.png",
-    PASSES_OLD_FAILS_SOLIDITY: "examples_YELLOW_fails_solidity_test.png",
-    PASSES_BOTH: "examples_GREEN_passes_both_filters.png",
+    FAILS_OLD_TEST: "examples_RED_fails_old_focus_test",
+    PASSES_OLD_FAILS_SOLIDITY: "examples_YELLOW_fails_solidity_test",
+    PASSES_BOTH: "examples_GREEN_passes_both_filters",
 }
 
 
@@ -116,7 +119,7 @@ def plot_filter_stage_examples(fin, fmetrics, groups):
 
         plt.suptitle(CATEGORY_LABEL[category], color=color, fontweight="bold")
         plt.tight_layout()
-        out_path = os.path.join(EXAMPLES_DIR, CATEGORY_FILENAME[category])
+        out_path = os.path.join(EXAMPLES_DIR, f"{CATEGORY_FILENAME[category]}{TAG}.png")
         plt.savefig(out_path, dpi=110)
         plt.close(fig)
         print(f"Saved {out_path}")
@@ -155,18 +158,26 @@ def plot_metric_distributions(fin, fmetrics, groups):
 
         plt.suptitle(f"{metric_label} distributions by group and filter stage")
         plt.tight_layout()
-        out_path = os.path.join(DIST_DIR, f"distribution_{metric_name}.png")
+        out_path = os.path.join(DIST_DIR, f"distribution_{metric_name}{TAG}.png")
         plt.savefig(out_path, dpi=110)
         plt.close(fig)
         print(f"Saved {out_path}")
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="RED/YELLOW/GREEN filter-stage example montages and metric distributions")
+    parser.add_argument("--thumbnails", default=THUMBNAILS_H5)
+    parser.add_argument("--shape-metrics", default=SHAPE_METRICS_H5,
+                        help="focus_shape_metrics h5 computed from the same --thumbnails file")
+    parser.add_argument("--tag", default="", help='appended to output filenames, e.g. "_t10"')
+    args = parser.parse_args()
+    TAG = args.tag
+
     os.makedirs(EXAMPLES_DIR, exist_ok=True)
     os.makedirs(DIST_DIR, exist_ok=True)
 
-    fin = h5py.File(THUMBNAILS_H5, "r")
-    fmetrics = h5py.File(SHAPE_METRICS_H5, "r")
+    fin = h5py.File(args.thumbnails, "r")
+    fmetrics = h5py.File(args.shape_metrics, "r")
     groups = list(fin.keys())
 
     plot_filter_stage_examples(fin, fmetrics, groups)

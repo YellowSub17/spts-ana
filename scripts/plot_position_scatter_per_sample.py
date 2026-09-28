@@ -21,6 +21,7 @@ each with x-position vs intensity^(1/6) on the left and y-position vs
 intensity^(1/6) on the right.
 """
 
+import argparse
 import os
 
 import h5py
@@ -56,10 +57,17 @@ def xy_intensity_and_keep(fin, fmetrics, group):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Per-group position vs intensity^(1/6) scatter plots")
+    parser.add_argument("--thumbnails", default=THUMBNAILS_H5)
+    parser.add_argument("--shape-metrics", default=SHAPE_METRICS_H5,
+                        help="focus_shape_metrics h5 computed from the same --thumbnails file")
+    parser.add_argument("--tag", default="", help='appended to output filenames, e.g. "_t10"')
+    args = parser.parse_args()
+
     os.makedirs(POS_DIR, exist_ok=True)
 
-    fin = h5py.File(THUMBNAILS_H5, "r")
-    fmetrics = h5py.File(SHAPE_METRICS_H5, "r")
+    fin = h5py.File(args.thumbnails, "r")
+    fmetrics = h5py.File(args.shape_metrics, "r")
 
     for group in PS_GROUPS_FOR_CALIBRATION:
         xs, ys, sixth_root, keep = xy_intensity_and_keep(fin, fmetrics, group)
@@ -85,7 +93,7 @@ if __name__ == "__main__":
 
         plt.suptitle(f"{group}: particle position vs. intensity^(1/6)")
         plt.tight_layout()
-        out_path = os.path.join(POS_DIR, f"position_vs_intensity_{group}.png")
+        out_path = os.path.join(POS_DIR, f"position_vs_intensity_{group}{args.tag}.png")
         plt.savefig(out_path, dpi=120)
         plt.close(fig)
         print(f"Saved {out_path}")
