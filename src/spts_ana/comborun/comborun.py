@@ -34,8 +34,15 @@ class ComboRun(ComboRun_Filters, ComboRun_Plots):
                 run_npeaks = f['5_detect/n'][:]
                 run_hits_loc = np.where(run_npeaks>0)[0] #both single and multi
 
+                # 5_detect/x etc. are (frames, n_max), with unused slots padded with -1.
+                # a slot holds a real peak if its index is below that frame's peak count.
+                # (don't use x>0/y>0 for this: with peak_centering=center_to_max, positions
+                # are integer pixels, so a real peak can sit at exactly x=0 or y=0)
+                n_max = f['5_detect/x'].shape[1]
+                slot_valid = (np.arange(n_max)[None, :] < run_npeaks[:, None]).ravel()
+
                 #indices in the h5 that match the peak
-                run_img_inds = np.array([file_i for file_i, npeaks_in_file_i in zip(run_hits_loc, run_npeaks[run_npeaks>0]) for _ in range(npeaks_in_file_i)])
+                run_img_inds = np.repeat(np.arange(len(run_npeaks)), n_max)[slot_valid]
 
 
                 if len(run_hits_loc) == 0:
@@ -59,7 +66,7 @@ class ComboRun(ComboRun_Filters, ComboRun_Plots):
                 self.im_y, self.im_x = im.shape
 
             #in frames where there is no peaks, the xy positions are -1.
-            xygt0_loc = np.logical_and(run_peak_xs>0, run_peak_ys>0)
+            xygt0_loc = slot_valid
 
             #remove the non-peaks
             run_peak_is = run_peak_is[xygt0_loc]
@@ -73,7 +80,7 @@ class ComboRun(ComboRun_Filters, ComboRun_Plots):
             run_peak_disloc = run_peak_disloc[xygt0_loc]
             run_peak_area = run_peak_area[xygt0_loc]
             run_peak_eccen = run_peak_eccen[xygt0_loc]
-            ### dont need to remove non peaks from run_img_inds for some reason...
+            # run_img_inds is already built from slot_valid, so it lines up with the arrays above
 
             # for some reason, this filter needs to be done seperate to the one above
             igt0_loc = run_peak_is>0
